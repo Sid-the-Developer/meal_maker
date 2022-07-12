@@ -14,11 +14,19 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  late String _email;
+  late String _pswd;
 
   @override
   void initState() {
     // TODO: implement sql initState
     super.initState();
+  }
+
+  Future<bool> _login() {
+    // TODO: Implement sql query checking
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const OverviewPage()));
+    return Future(() => true);
   }
 
   @override
@@ -35,17 +43,24 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Email *'),
+                validator: emailValidator,
+                onSaved: (value) {
+                  _email = value ?? '';
+                },
+                textInputAction: TextInputAction.next,
               ),
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Password *'),
                 obscureText: true,
+                textInputAction: TextInputAction.next,
+                onSaved: (value) {
+                  _pswd = value ?? '';
+                },
+                onFieldSubmitted: (value) => _login(),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-                child: ElevatedButton(onPressed: () {
-                  // TODO: Implement sql query checking
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const OverviewPage()));
-                }, child: const Text('Login')),
+                child: ElevatedButton(onPressed: _login, child: const Text('Login')),
               ),
               InkWell(
                 onTap: () => Navigator.push(context,

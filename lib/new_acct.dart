@@ -3,7 +3,7 @@ import 'package:meal_planner/overview.dart';
 import 'globals.dart';
 import 'package:mysql1/mysql1.dart';
 
-import 'centerForm.dart';
+import 'center_form.dart';
 
 class NewAcctPage extends StatefulWidget {
   const NewAcctPage({Key? key}) : super(key: key);

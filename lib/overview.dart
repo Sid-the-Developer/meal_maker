@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meal_planner/recipe.dart';
+import 'package:meal_planner/recipe_table.dart';
 import 'package:mysql1/mysql1.dart';
 
 class OverviewPage extends StatefulWidget {
@@ -73,8 +74,23 @@ class _OverviewPageState extends State<OverviewPage>
             replacement: Recipe(formKey: _recipeKey, editable: true,),
           child: Center(child: Text('Grocery Runs')),),
         const Center(child: Text('Browse Recipes')), //TODO implement table view of data
-        Visibility(visible: chef, replacement: const Center(child: Text('My Products')),
-        child: const Center(child: Text('My Recipes'))),
+        Visibility(visible: chef,
+        replacement: Center(child: RecipeTable(recipes: [
+          Recipe(
+                name: 'Paella',
+                rating: 4,
+                author: 'Wila',
+                id: 1,
+                formKey: GlobalKey<FormState>(),
+              ),
+          Recipe(
+            name: 'Bomba',
+            rating: 3,
+            author: 'Rob',
+            id: 3,
+            formKey: GlobalKey<FormState>(),
+          )
+            ])), child: const Center(child: Text('My Products'))),
       ]),
     );
   }

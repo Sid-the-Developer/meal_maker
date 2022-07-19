@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meal_planner/new_acct.dart';
-import 'centerForm.dart';
+import 'center_form.dart';
 import 'package:mysql1/mysql1.dart';
 
 import 'overview.dart';

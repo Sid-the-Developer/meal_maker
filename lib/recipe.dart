@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
-import 'multiField.dart';
+import 'multifield.dart';
 import 'product.dart';
 import 'globals.dart';
 
-import 'centerForm.dart';
+import 'center_form.dart';
 
 /// file for recipe form widget
 class Recipe extends StatefulWidget {
-  const Recipe({Key? key, this.editable = false, this.name, required formKey})
+  const Recipe({Key? key, this.editable = false, this.name, this.author, this.rating, this.id, required formKey})
       : _formKey = formKey,
         super(key: key);
 
   final bool editable;
   final GlobalKey<FormState> _formKey;
   final String? name;
+  final String? author;
+  final double? rating;
+  final int? id;
 
   @override
   State<StatefulWidget> createState() => RecipeState();
@@ -44,12 +47,17 @@ class RecipeState extends State<Recipe> {
     return Center(
       child: SingleChildScrollView(
         controller: ScrollController(),
-        child: CenterForm(formKey: widget._formKey, title: 'Write Recipe',
+        child: CenterForm(formKey: widget._formKey, title: widget.editable ? 'Write Recipe' : widget.name,
             children: [
+              Visibility(visible: !widget.editable, child: InkWell(
+                child: Text('Avg Rating: ${widget.rating}/5.0', style: const TextStyle(color: Colors.blue),),
+                // onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => ReviewPage())),
+              )),
           SizedBox(
             width: 400,
             child: TextFormField(
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration:  InputDecoration(labelText: widget.editable ? 'Name' : 'Author'),
+              initialValue: widget.author,
               textInputAction: TextInputAction.next,
               validator: nullValidator,
               enabled: widget.editable,
@@ -86,6 +94,7 @@ class RecipeState extends State<Recipe> {
                           ),
                         ),
                         maxLines: null,
+                        initialValue: _instructions,
                         textAlignVertical: TextAlignVertical.top,
                         onSaved: (instr) => _instructions = instr,
                         textInputAction: TextInputAction.next,
@@ -93,22 +102,11 @@ class RecipeState extends State<Recipe> {
                     ),
                   ],
                 ),
-                Column(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
-                      child: ProductTable(
-                        editable: true,
-                      ),
-                    ),
-                    Visibility(
-                        visible: widget.editable,
-                          child: OutlinedButton(
-                            child: const Text('Add a new product to db'),
-                            onPressed: () => ProductTable.addProduct(context),
-                          ),
-                        )
-                  ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                  child: ProductTable(
+                    editable: widget.editable,
+                  ),
                 )
               ],
             ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:meal_planner/login.dart';
+import 'package:meal_planner/recipe.dart';
 import 'package:mysql1/mysql1.dart';
 
 class OverviewPage extends StatefulWidget {
@@ -13,6 +13,7 @@ class _OverviewPageState extends State<OverviewPage>
     with TickerProviderStateMixin {
   bool chef = false;
   late final TabController _controller = TabController(length: 3, vsync: this);
+  final GlobalKey<FormState> _recipeKey = GlobalKey();
 
   @override
   void initState() {
@@ -68,9 +69,12 @@ class _OverviewPageState extends State<OverviewPage>
         ),
       ),
       body: TabBarView(controller: _controller, children: [
-        Visibility(visible: chef,child: Center(child: Text(chef ? 'Grocery Runs' : 'Write Recipe')),),
+        Visibility(visible: chef,
+            replacement: Recipe(formKey: _recipeKey, editable: true,),
+          child: Center(child: Text('Grocery Runs')),),
         const Center(child: Text('Browse Recipes')), //TODO implement table view of data
-        Visibility(visible: chef, child: Center(child: Text('My ${chef ? 'Reviews' : 'Recipes'}')))
+        Visibility(visible: chef, replacement: const Center(child: Text('My Products')),
+        child: const Center(child: Text('My Recipes'))),
       ]),
     );
   }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:meal_planner/login.dart';
+import 'package:meal_planner/screens/login.dart';
 
 void main() {
   runApp(const MyApp());

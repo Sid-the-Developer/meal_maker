@@ -7,7 +7,7 @@ class MultiField extends StatefulWidget {
       this.editable = false,
       required this.field})
       : super(key: key) {
-    fields.add(field);
+    if (fields.isEmpty) fields.add(field);
   }
 
   final List<Widget> fields;

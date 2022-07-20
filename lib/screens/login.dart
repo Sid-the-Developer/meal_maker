@@ -1,29 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:meal_planner/overview.dart';
-import 'globals.dart';
+import 'package:meal_planner/screens/new_acct.dart';
+import '../widgets/center_form.dart';
 import 'package:mysql1/mysql1.dart';
 
-import 'center_form.dart';
+import 'overview.dart';
+import '../globals.dart';
 
-class NewAcctPage extends StatefulWidget {
-  const NewAcctPage({Key? key}) : super(key: key);
+class LoginPage extends StatefulWidget {
+  const LoginPage({Key? key}) : super(key: key);
 
   @override
-  State<NewAcctPage> createState() => _NewAcctPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _NewAcctPageState extends State<NewAcctPage> {
+class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  String? _email;
-  String? _pswd;
-  String? _name;
-  String? _address;
+  late String? _email;
+  late String? _pswd;
 
-  Future<bool> _save() async {
-    // TODO: Implement sql query
+  @override
+  void initState() {
+    // TODO: implement sql initState
+    super.initState();
+  }
+
+  Future<bool> _login() async {
+    // TODO: Implement sql query checking
     if (_formKey.currentState?.validate() ?? false) {
       _formKey.currentState?.save();
-      Navigator.push(context,
+      Navigator.of(context).push(
           MaterialPageRoute(builder: (context) => const OverviewPage()));
       return true;
     }
@@ -32,15 +37,17 @@ class _NewAcctPageState extends State<NewAcctPage> {
 
   @override
   Widget build(BuildContext context) {
+    // This method is rerun every time setState is called, for instance as done
+    // by the _incrementCounter method above.
+    //
     // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
         appBar: AppBar(
           // Here we take the value from the MyHomePage object that was created by
           // the App.build method, and use it to set our appbar title.
-          title: const Text('Create Account'),
+          title: const Text('Meal Planner'),
           centerTitle: true,
         ),
         body: Center(
@@ -51,6 +58,7 @@ class _NewAcctPageState extends State<NewAcctPage> {
                 width: 500,
                 child: CenterForm(
                   formKey: _formKey,
+                  title: 'Login',
                   children: [
                     TextFormField(
                       decoration: const InputDecoration(labelText: 'Email *'),
@@ -63,37 +71,32 @@ class _NewAcctPageState extends State<NewAcctPage> {
                     TextFormField(
                       decoration:
                           const InputDecoration(labelText: 'Password *'),
-                      validator: pswdValidator,
                       obscureText: true,
+                      validator: nullValidator,
+                      textInputAction: TextInputAction.next,
                       onSaved: (value) {
                         _pswd = value;
                       },
-                      textInputAction: TextInputAction.next,
-                    ),
-                    TextFormField(
-                      decoration: const InputDecoration(labelText: 'Name *'),
-                      validator: nullValidator,
-                      onSaved: (value) {
-                        _name = value;
-                      },
-                      textInputAction: TextInputAction.next,
-                    ),
-                    TextFormField(
-                      decoration: const InputDecoration(labelText: 'Address *'),
-                      validator: nullValidator,
-                      onSaved: (value) {
-                        _address = value;
-                      },
-                      onFieldSubmitted: (value) => _save(),
-                      textInputAction: TextInputAction.next,
+                      onFieldSubmitted: (value) => _login(),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
                       child: ElevatedButton(
-                          onPressed: _save,
-                          child: const Text('Create Account')),
+                          onPressed: _login, child: const Text('Login')),
                     ),
-                  ],
+                    InkWell(
+                      onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const NewAcctPage())),
+                      child: const Text(
+                        'Don' 't have an account? Click Here',
+                        style: TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline),
+                      ),
+                    )
+                  ], // This trailing comma makes auto-formatting nicer for build methods.
                 ))));
   }
 }

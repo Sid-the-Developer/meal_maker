@@ -29,3 +29,27 @@ final TextFormField typeField = TextFormField(
   validator: nullValidator,
   textInputAction: TextInputAction.next,
 );
+
+// not editable
+final TextFormField viewDietTagField = TextFormField(
+  decoration: const InputDecoration(labelText: 'Diet Tag'),
+  validator: nullValidator,
+  enabled: false,
+  textInputAction: TextInputAction.next,
+);
+final TextFormField viewCuisineField = TextFormField(
+  decoration: const InputDecoration(labelText: 'Cuisine'),
+  validator: nullValidator,
+  enabled: false,
+  textInputAction: TextInputAction.next,
+);
+final TextFormField viewTypeField = TextFormField(
+  decoration: const InputDecoration(labelText: 'Type'),
+  validator: nullValidator,
+  enabled: false,
+  textInputAction: TextInputAction.next,
+);
+
+// global route names
+const routeHome = '/home';
+const routeOverview = '/';

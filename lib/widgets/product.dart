@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'globals.dart';
+import '../globals.dart';
 
 import 'center_form.dart';
 import 'multifield.dart';
@@ -26,7 +26,6 @@ class ProductTableState extends State<ProductTable> {
 
   @override
   Widget build(BuildContext context) {
-    var allProducts = _allProducts;
     return Column(
       children: [
         Scrollbar(
@@ -53,7 +52,7 @@ class ProductTableState extends State<ProductTable> {
                               child: DropdownButtonFormField<String>(
                                 isExpanded: true,
                                 value: entry.key,
-                                items: allProducts
+                                items: _allProducts
                                     .map((product) => DropdownMenuItem<String>(
                                         value: product, child: Text(product)))
                                     .toList(),
@@ -112,7 +111,7 @@ class ProductTableState extends State<ProductTable> {
                 child: DropdownButtonFormField<String>(
                   isExpanded: true,
                   value: _productDropdown,
-                  items: allProducts
+                  items: _allProducts
                       .map((product) => DropdownMenuItem<String>(
                           value: product, child: Text(product)))
                       .toList(),

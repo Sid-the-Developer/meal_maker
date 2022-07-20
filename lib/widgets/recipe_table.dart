@@ -1,18 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:meal_planner/recipe.dart';
+import 'package:meal_planner/widgets/recipe.dart';
 
 class RecipeTable extends StatefulWidget {
-  const RecipeTable({Key? key, this.recipes = const []}) : super(key: key);
-  final List<Recipe> recipes;
+  const RecipeTable({Key? key, this.userIDs = const []}) : super(key: key);
+  final List<String> userIDs;
 
   @override
   State<StatefulWidget> createState() => RecipeTableState();
 }
 
 class RecipeTableState extends State<RecipeTable> {
-  late List<Recipe> _recipes = widget.recipes;
+  late List _recipes;
   int _sortIndex = 0;
   bool _sortAsc = true;
+
+  @override
+  void initState() {
+    // TODO: initialize _recipes with matching query
+    super.initState();
+    // placeholder for testing
+    _recipes = [
+      Recipe(
+        name: 'Paella',
+        rating: 4,
+        author: 'Wila',
+        id: 1,
+        formKey: GlobalKey<FormState>(),
+      ),
+      Recipe(
+        name: 'Bomba',
+        rating: 3,
+        author: 'Rob',
+        id: 3,
+        formKey: GlobalKey<FormState>(),
+      )
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,10 +92,8 @@ class RecipeTableState extends State<RecipeTable> {
                     onSelectChanged: (selected) {
                       if (selected ?? false) {
                         Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => Scaffold(
-                                  appBar: AppBar(),
-                                  body: recipe,
-                                )));
+                            builder: (context) => recipe,
+                                ));
                       }
                     }))
             .toList(),

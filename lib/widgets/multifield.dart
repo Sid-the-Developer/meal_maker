@@ -28,28 +28,29 @@ class MultiFieldState extends State<MultiField> {
         children: [
       Container(
           padding: const EdgeInsets.all(8),
-          margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
-          decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(
-                  style: BorderStyle.solid, color: Colors.grey, width: 1)),
-          constraints: const BoxConstraints(
-            minHeight: 100,
-            minWidth: 100,
-            maxWidth: 300,
-            maxHeight: 200,
-          ),
-          child: Scrollbar(
-            thumbVisibility: true,
-            child: GridView.count(
-              controller: ScrollController(),
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 0,
-              shrinkWrap: true,
-              children: [...widget.fields],
-            ),
-          )),
+              margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(5),
+                  border: Border.all(
+                      style: BorderStyle.solid, color: Colors.grey, width: 1)),
+              constraints: const BoxConstraints(
+                minHeight: 50,
+                minWidth: 100,
+                maxWidth: 300,
+                maxHeight: 200,
+              ),
+              child: Scrollbar(
+                thumbVisibility: true,
+                child: GridView.count(
+                  controller: ScrollController(),
+                  childAspectRatio: MediaQuery.of(context).size.aspectRatio,
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 0,
+                  shrinkWrap: true,
+                  children: [...widget.fields],
+                ),
+              )),
       Visibility(
           visible: widget.editable,
           child: Column(

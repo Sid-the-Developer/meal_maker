@@ -46,7 +46,7 @@ class RecipeTableState extends State<RecipeTable> {
         showCheckboxColumn: false,
         sortAscending: _sortAsc,
         sortColumnIndex: _sortIndex,
-        border: TableBorder.all(),
+        // border: TableBorder.all(),
         columns: [
           const DataColumn(
               label: Center(

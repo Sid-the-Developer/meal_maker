@@ -20,9 +20,7 @@ class ProductTableState extends State<ProductTable> {
 
   late int _amount;
   String? _productDropdown;
-
-  Future<bool?> addProduct() async => await showDialog<bool>(
-        context: context, builder: (context) => const ProductDialog());
+  GlobalKey<FormFieldState> _amountKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -127,21 +125,23 @@ class ProductTableState extends State<ProductTable> {
               child: SizedBox(
                 width: 100,
                 child: TextFormField(
-                  decoration: const InputDecoration(hintText: 'Amount'),
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onFieldSubmitted: (amount) {
-                    if (_productDropdown != null) {
-                      setState(() {
-                        _recipeProducts[_productDropdown!] =
-                            int.tryParse(amount) ?? 0;
-                        _productDropdown = null;
-                      });
-                    }
-                  },
-                  onChanged: (amount) {
-                    _amount = int.tryParse(amount) ?? 0;
-                  },
-                ),
+                      key: _amountKey,
+                      decoration: const InputDecoration(hintText: 'Amount'),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onFieldSubmitted: (amount) {
+                        if (_productDropdown != null) {
+                          setState(() {
+                            _recipeProducts[_productDropdown!] =
+                                int.tryParse(amount) ?? 0;
+                            _productDropdown = null;
+                            _amountKey.currentState?.reset();
+                          });
+                        }
+                      },
+                      onChanged: (amount) {
+                        _amount = int.tryParse(amount) ?? 0;
+                      },
+                    ),
               ),
             ),
             IconButton(
@@ -161,9 +161,9 @@ class ProductTableState extends State<ProductTable> {
           child: Padding(
             padding: const EdgeInsets.only(top: 16),
             child: OutlinedButton(
-                child: const Text('Add a new product to db'),
-                onPressed: () => addProduct().then((_) => setState((){})),
-              ),
+              child: const Text('Add a new product to db'),
+              onPressed: () => addProduct(context).then((_) => setState(() {})),
+            ),
           ),
         )
       ],
@@ -188,63 +188,69 @@ class ProductDialogState extends State<ProductDialog> {
   Widget build(BuildContext context) {
     return SimpleDialog(
       children: [
-        CenterForm(formKey: _productFormKey, children: [
-          SizedBox(
-            width: 200,
-            child: TextFormField(
-              decoration: const InputDecoration(labelText: 'Name'),
-              textInputAction: TextInputAction.next,
-              validator: nullValidator,
-              onSaved: (name) => _allProducts.add(name!),
-            ),
-          ),
-          SizedBox(
-            width: 200,
-            child: TextFormField(
-              decoration: const InputDecoration(labelText: 'Units'),
-              textInputAction: TextInputAction.next,
-              validator: nullValidator,
-              onChanged: (value) {
-                _units = value;
-              },
-            ),
-          ),
-          SizedBox(
-              width: 400,
-              height: 200,
-              child: MultiField(
-                fields: _typeFields,
-                field: typeField,
-                editable: true,
-              )),
-          SizedBox(
-            width: 200,
-            child: SwitchListTile(
-              value: _isTool,
-              onChanged: (value) {
-                setState(() {
-                  _isTool = value;
-                });
-              },
-              title: const Text('Tool'),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-            child: ElevatedButton(
-                onPressed: () {
-                  if (_productFormKey.currentState?.validate() ?? false) {
-                    _productFormKey.currentState?.save();
+        SizedBox(
+            height: MediaQuery.of(context).size.height * .5,
+            width: MediaQuery.of(context).size.width * .5,
+            child: SingleChildScrollView(
+              child: CenterForm(
+                  formKey: _productFormKey,
+                  title: 'Add Product',
+                  children: [
+                    SizedBox(
+                      width: 200,
+                      child: TextFormField(
+                        decoration: const InputDecoration(labelText: 'Name'),
+                        textInputAction: TextInputAction.next,
+                        validator: nullValidator,
+                        onSaved: (name) => _allProducts.add(name!),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 200,
+                      child: TextFormField(
+                        decoration: const InputDecoration(labelText: 'Units'),
+                        textInputAction: TextInputAction.next,
+                        validator: nullValidator,
+                        onChanged: (value) {
+                          _units = value;
+                        },
+                      ),
+                    ),
+                    MultiField(
+                      fields: _typeFields,
+                      field: typeField,
+                      editable: true,
+                    ),
+                    SizedBox(
+                      width: 200,
+                      child: SwitchListTile(
+                        value: _isTool,
+                        onChanged: (value) {
+                          setState(() {
+                            _isTool = value;
+                          });
+                        },
+                        title: const Text('Tool'),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                      child: ElevatedButton(
+                          onPressed: () {
+                            if (_productFormKey.currentState?.validate() ??
+                                false) {
+                              _productFormKey.currentState?.save();
 
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content:
-                            Text('${_allProducts.last} added successfully')));
-                    Navigator.of(context).pop(true);
-                  }
-                },
-                child: const Text('Save')),
-          ),
-        ])
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(
+                                      '${_allProducts.last} added successfully')));
+                              Navigator.of(context).pop(true);
+                            }
+                          },
+                          child: const Text('Save')),
+                    ),
+                  ]),
+            ))
       ],
     );
   }

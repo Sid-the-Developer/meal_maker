@@ -27,8 +27,14 @@ class _CenterFormState extends State<CenterForm> {
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            widget.title != null ? Text(widget.title!, style: const TextStyle(fontSize: 24),) : Container(),
+            widget.title != null
+                ? Text(
+                    widget.title!,
+                    style: const TextStyle(fontSize: 24),
+                  )
+                : Container(),
             Form(
                 key: widget._formKey,
                 autovalidateMode: AutovalidateMode.disabled,

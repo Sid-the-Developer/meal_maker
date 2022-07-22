@@ -10,7 +10,7 @@ class ReviewTable extends StatefulWidget {
   final String? recipeName;
 
   const ReviewTable(
-      {Key? key, required this.recipeIDs, this.recipeName, this.chef = false})
+      {Key? key, required this.recipeIDs, this.recipeName, required this.chef})
       : super(key: key);
 
   @override
@@ -51,7 +51,7 @@ class ReviewTableState extends State<ReviewTable> {
             showCheckboxColumn: false,
             sortAscending: true,
             sortColumnIndex: 0,
-            border: TableBorder.all(),
+            // border: TableBorder.all(),
             columns: const [
               DataColumn(
                   label: Center(
@@ -95,14 +95,17 @@ class ReviewTableState extends State<ReviewTable> {
           ),
         ),
       ),
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: ElevatedButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => ReviewPage(
-                      formKey: _reviewKey,
-                    ))),
-            child: const Text('Write Review')),
+      Visibility(
+        visible: widget.chef,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: ElevatedButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (context) => ReviewPage(
+                        formKey: _reviewKey,
+                      ))),
+              child: const Text('Write Review')),
+        ),
       ),
       const Spacer()
     ]);

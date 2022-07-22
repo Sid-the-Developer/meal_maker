@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:meal_planner/widgets/center_form.dart';
 import 'package:meal_planner/widgets/recipe.dart';
 
 import '../globals.dart';
 import '../widgets/multifield.dart';
 
 class BrowseRecipes extends StatefulWidget {
-  const BrowseRecipes({Key? key, this.recipes = const []}) : super(key: key);
+  const BrowseRecipes({Key? key, this.recipes = const [], required this.chef})
+      : super(key: key);
   final List recipes;
+  final bool chef;
 
   @override
   State<StatefulWidget> createState() => BrowseRecipesState();
 }
 
 class BrowseRecipesState extends State<BrowseRecipes> {
-  late List _recipes = [
+  late List<Recipe> _recipes = [
     Recipe(
       name: 'Paella',
       rating: 4,
@@ -33,14 +36,41 @@ class BrowseRecipesState extends State<BrowseRecipes> {
       formKey: GlobalKey<FormState>(),
     )
   ];
-  final List<Widget> _dietTags = [];
-  final List<Widget> _cuisines = [];
-  bool _sortAsc = true;
+  final List<TextFormField> _dietTags = [];
+  final List<TextFormField> _cuisines = [];
 
-  @override
-  void initState() {
-    // TODO: initialize _recipes with matching query
-    super.initState();
+  bool _sortAsc = true;
+  int _sortIndex = 0;
+  GlobalKey<FormState> _mealKey = GlobalKey();
+  int? year;
+  int? month;
+  int? day;
+
+  List<Widget> _filter() {
+    List<Recipe> filtered = _recipes;
+    for (TextFormField dietTag in _dietTags) {
+      if (dietTag.controller?.text != '') {
+        filtered.addAll(filtered.where((recipe) =>
+            recipe.dietTags?.contains((dietTag.controller?.text)!) ?? true));
+      }
+    }
+
+    for (TextFormField cuisine in _cuisines) {
+      if (cuisine.controller?.text != '') {
+        filtered.addAll(filtered.where((recipe) =>
+            recipe.cuisines?.contains((cuisine.controller?.text)!) ?? true));
+      }
+    }
+
+    return filtered;
+  }
+
+  _save() {
+    if (_mealKey.currentState?.validate() ?? false) {
+      _mealKey.currentState?.save();
+      // TODO sql
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -79,12 +109,12 @@ class BrowseRecipesState extends State<BrowseRecipes> {
         ),
         ConstrainedBox(
           constraints:
-              BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .5),
+              BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .75),
           child: DataTable(
             showCheckboxColumn: false,
             sortAscending: _sortAsc,
-            sortColumnIndex: 5,
-            border: TableBorder.all(),
+            sortColumnIndex: _sortIndex,
+            // border: TableBorder.all(),
             columns: [
               const DataColumn(
                   label: Center(
@@ -141,6 +171,23 @@ class BrowseRecipesState extends State<BrowseRecipes> {
                       }
                     });
                   }),
+              DataColumn(
+                  label: const Center(
+                      child: Text(
+                    '% Own',
+                    textAlign: TextAlign.center,
+                  )),
+                  numeric: true,
+                  onSort: (index, asc) {
+                    setState(() {
+                      _sortAsc = asc;
+                      _sortIndex = index;
+                      _recipes.sort((a, b) => a.rating!.compareTo(b.rating!));
+                      if (!asc) {
+                        _recipes = _recipes.reversed.toList();
+                      }
+                    });
+                  }),
             ],
             rows: _recipes
                 .map<DataRow>((recipe) => DataRow(
@@ -150,12 +197,89 @@ class BrowseRecipesState extends State<BrowseRecipes> {
                           DataCell(Text(recipe.author!)),
                           DataCell(Text(recipe.cuisines!)),
                           DataCell(Text(recipe.dietTags!)),
-                          DataCell(Text(recipe.rating.toString()))
+                          DataCell(Text(recipe.rating.toString())),
+                          DataCell(Text(widget.chef ? ' ' : 'N/A'))
                         ],
                         onSelectChanged: (selected) {
                           if (selected ?? false) {
                             Navigator.of(context).push(MaterialPageRoute(
-                              builder: (context) => recipe,
+                              builder: (context) => Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  recipe,
+                                  Visibility(
+                                    visible: widget.chef,
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          8, 16, 8, 8),
+                                      child: ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        CenterForm(
+                                                            title:
+                                                                'Recipe - Plan Meal',
+                                                            formKey: _mealKey,
+                                                            children: [
+                                                              SizedBox(
+                                                                width: 200,
+                                                                child:
+                                                                    InputDatePickerFormField(
+                                                                  initialDate:
+                                                                      DateTime
+                                                                          .now(),
+                                                                  lastDate: DateTime(
+                                                                      DateTime.now()
+                                                                              .year +
+                                                                          100),
+                                                                  errorInvalidText:
+                                                                      'Invalid date: must be in the future',
+                                                                  errorFormatText:
+                                                                      'Must be in date format',
+                                                                  firstDate:
+                                                                      DateTime
+                                                                          .now(),
+                                                                  onDateSubmitted:
+                                                                      (_) =>
+                                                                          _save(),
+                                                                  onDateSaved:
+                                                                      (date) {
+                                                                    year = date
+                                                                        .year;
+                                                                    month = date
+                                                                        .month;
+                                                                    day = date
+                                                                        .day;
+                                                                  },
+                                                                ),
+                                                              ),
+                                                              Visibility(
+                                                                visible:
+                                                                    widget.chef,
+                                                                child: Padding(
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                              .fromLTRB(
+                                                                          8,
+                                                                          16,
+                                                                          8,
+                                                                          8),
+                                                                  child: ElevatedButton(
+                                                                      onPressed:
+                                                                          _save,
+                                                                      child: const Text(
+                                                                          'Save')),
+                                                                ),
+                                                              ),
+                                                            ])));
+                                          },
+                                          child: const Text('Plan Meal')),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ));
                           }
                         }))

@@ -15,8 +15,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  late String? _email;
-  late String? _pswd;
+  late String _email;
+  late String _pswd;
 
   @override
   void initState() {
@@ -28,8 +28,10 @@ class _LoginPageState extends State<LoginPage> {
     // TODO: Implement sql query checking
     if (_formKey.currentState?.validate() ?? false) {
       _formKey.currentState?.save();
-      Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const OverviewPage()));
+      Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => OverviewPage(
+                email: _email,
+              )));
       return true;
     }
     return false;
@@ -64,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
                       decoration: const InputDecoration(labelText: 'Email *'),
                       validator: emailValidator,
                       onSaved: (value) {
-                        _email = value;
+                        _email = value!;
                       },
                       textInputAction: TextInputAction.next,
                     ),
@@ -75,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
                       validator: nullValidator,
                       textInputAction: TextInputAction.next,
                       onSaved: (value) {
-                        _pswd = value;
+                        _pswd = value!;
                       },
                       onFieldSubmitted: (value) => _login(),
                     ),

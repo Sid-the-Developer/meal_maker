@@ -70,11 +70,15 @@ class RecipeState extends State<Recipe> {
                       style: const TextStyle(color: Colors.blue),
                     ),
                     onTap: () =>
-                        Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) =>
-                                      ReviewTable(recipeName: widget.name, recipeIDs: [1, 2, 3]),
-                                      ),
-                  ))),
+                        Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ReviewTable(
+                                recipeName: widget.name,
+                                recipeIDs: [1, 2, 3],
+                                chef: widget.chef,
+                              ),
+                            ),
+                          ))),
               SizedBox(
                 width: 400,
                 child: TextFormField(

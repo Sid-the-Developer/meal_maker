@@ -22,7 +22,11 @@ class _NewAcctPageState extends State<NewAcctPage> {
     // TODO: Implement sql query
     if (_formKey.currentState?.validate() ?? false) {
       _formKey.currentState?.save();
-      Navigator.of(context).pop();
+      await db.query('INSERT INTO USER VALUES (?, ?, ?, ?)',
+          [_email, _name, _pswd, _address]);
+
+      if (mounted) Navigator.of(context).pop();
+
       return true;
     }
     return false;

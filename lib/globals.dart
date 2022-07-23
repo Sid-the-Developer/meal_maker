@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meal_planner/widgets/product.dart';
+import 'package:mysql1/mysql1.dart';
 
 /// file for global variables that can be imported in other files
 
@@ -36,29 +37,51 @@ final TextFormField typeField = TextFormField(
 );
 
 // not editable
-final TextFormField viewDietTagField = TextFormField(
-  decoration: const InputDecoration(labelText: 'Diet Tag'),
-  validator: nullValidator,
-  enabled: false,
-  textInputAction: TextInputAction.next,
-);
-final TextFormField viewCuisineField = TextFormField(
-  decoration: const InputDecoration(labelText: 'Cuisine'),
-  validator: nullValidator,
-  enabled: false,
-  textInputAction: TextInputAction.next,
-);
-final TextFormField viewTypeField = TextFormField(
-  decoration: const InputDecoration(labelText: 'Type'),
-  validator: nullValidator,
-  enabled: false,
-  textInputAction: TextInputAction.next,
-);
+TextFormField viewDietTagField(String text) => TextFormField(
+      decoration: const InputDecoration(labelText: 'Diet Tag'),
+      validator: nullValidator,
+      enabled: false,
+      initialValue: text,
+      textInputAction: TextInputAction.next,
+    );
+
+TextFormField viewCuisineField(String text) => TextFormField(
+      decoration: const InputDecoration(labelText: 'Cuisine'),
+      validator: nullValidator,
+      enabled: false,
+      initialValue: text,
+      textInputAction: TextInputAction.next,
+    );
+
+TextFormField viewTypeField(String text) => TextFormField(
+      decoration: const InputDecoration(labelText: 'Type'),
+      validator: nullValidator,
+      enabled: false,
+      initialValue: text,
+      textInputAction: TextInputAction.next,
+    );
 
 // add a product to the database needed on multiple screens
 Future<bool?> addProduct(BuildContext context) async => await showDialog<bool>(
     context: context, builder: (context) => const ProductDialog());
 
-// global route names
-const routeHome = '/home';
-const routeOverview = '/';
+// mysql package variables
+late ConnectionSettings settings;
+late MySqlConnection db;
+// allows for use of column names instead of indices to reference values
+List<Map<String, dynamic>> dbResultToMap(
+    Results results, List<String> columns) {
+  assert(results.fields.length == columns.length);
+  List<Map<String, dynamic>> maps = [];
+
+  for (var result in results) {
+    Map<String, dynamic> map = {};
+
+    for (int i = 0; i < columns.length; i++) {
+      map[columns[i]] = result[i];
+    }
+    maps.add(map);
+  }
+
+  return maps;
+}

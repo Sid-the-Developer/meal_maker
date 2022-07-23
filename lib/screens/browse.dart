@@ -6,61 +6,104 @@ import '../globals.dart';
 import '../widgets/multifield.dart';
 
 class BrowseRecipes extends StatefulWidget {
-  const BrowseRecipes({Key? key, this.recipes = const [], required this.chef})
+  const BrowseRecipes({Key? key, required this.chef, required this.email})
       : super(key: key);
-  final List recipes;
   final bool chef;
+  final String email;
 
   @override
   State<StatefulWidget> createState() => BrowseRecipesState();
 }
 
 class BrowseRecipesState extends State<BrowseRecipes> {
-  late List<Recipe> _recipes = [
-    Recipe(
-      name: 'Paella',
-      rating: 4,
-      author: 'Wila',
-      id: 1,
-      cuisines: 'cuisines',
-      dietTags: 'diet tags',
-      formKey: GlobalKey<FormState>(),
-    ),
-    Recipe(
-      name: 'Bomba',
-      rating: 3,
-      author: 'Rob',
-      id: 3,
-      cuisines: 'cuisines',
-      dietTags: 'diet tags',
-      formKey: GlobalKey<FormState>(),
-    )
-  ];
+  late List<Map<String, dynamic>> _recipes = [];
+  late Map<int, List<String>> _recipeCuisines = {};
+  late Map<int, List<String>> _recipeDietTags = {};
   final List<TextFormField> _dietTags = [];
   final List<TextFormField> _cuisines = [];
 
   bool _sortAsc = true;
-  int _sortIndex = 0;
-  GlobalKey<FormState> _mealKey = GlobalKey();
+  int _sortIndex = 5;
+  final GlobalKey<FormState> _mealKey = GlobalKey();
   int? year;
   int? month;
   int? day;
 
-  List<Widget> _filter() {
-    List<Recipe> filtered = _recipes;
-    for (TextFormField dietTag in _dietTags) {
-      if (dietTag.controller?.text != '') {
-        filtered.addAll(filtered.where((recipe) =>
-            recipe.dietTags?.contains((dietTag.controller?.text)!) ?? true));
+  @override
+  void initState() {
+    super.initState();
+    _getRecipes();
+  }
+
+  void _getRecipes() async {
+    _recipes = dbResultToMap(
+        await db.query(
+            'SELECT REVIEW.RecipeID, TMP.RecipeName, TMP.Name, AVG(Rating) AS Avg '
+            'FROM REVIEW JOIN (SELECT RecipeID, Name, RecipeName '
+            'FROM USER NATURAL JOIN RECIPE) AS TMP '
+            'ON REVIEW.RecipeID = TMP.RecipeID '
+            'GROUP BY TMP.RecipeID'
+            'ORDER BY Avg ${_sortAsc ? 'ASC' : 'DESC'}'),
+        ['RecipeID', 'Name', 'Author', 'Rating']);
+
+    var allDietTags = dbResultToMap(
+        await db.query('SELECT RecipeID, DietTag FROM DIET_TAG'),
+        ['RecipeID', 'Diet Tag']);
+    for (var map in allDietTags) {
+      if (_recipeDietTags[map['RecipeID']] != null) {
+        _recipeDietTags[map['RecipeID']]?.add(map['Diet Tag']);
+      } else {
+        _recipeDietTags[map['RecipeID']] = [map['Diet Tag']];
       }
     }
 
-    for (TextFormField cuisine in _cuisines) {
-      if (cuisine.controller?.text != '') {
-        filtered.addAll(filtered.where((recipe) =>
-            recipe.cuisines?.contains((cuisine.controller?.text)!) ?? true));
+    var allCuisines = dbResultToMap(
+        await db.query('SELECT RecipeID, Cuisine FROM CUISINE'),
+        ['RecipeID', 'Cuisine']);
+    for (var map in allCuisines) {
+      if (_recipeCuisines[map['RecipeID']] != null) {
+        _recipeCuisines[map['RecipeID']]?.add(map['Cuisine']);
+      } else {
+        _recipeCuisines[map['RecipeID']] = [map['Cuisine']];
       }
     }
+  }
+
+  List<Map<String, dynamic>> _filter() {
+    // deep copy
+    List<Map<String, dynamic>> filtered =
+        _recipes.map((e) => Map<String, dynamic>.of(e)).toList();
+    List<int> invalidRecipeIDs = [];
+
+    // find recipes that do not contain at least one of the filters then remove them
+    for (TextFormField dietTag in _dietTags) {
+      if (dietTag.controller?.text != '') {
+        for (MapEntry<int, List<String>> recipe in _recipeDietTags.entries) {
+          if (!recipe.value.contains(dietTag.controller?.text)) {
+            invalidRecipeIDs.add(recipe.key);
+          }
+        }
+      }
+    }
+
+    // remove invalid diettags to make cuisine loop faster
+    filtered.removeWhere(
+        (element) => invalidRecipeIDs.contains(element['RecipeID']));
+
+    // do the same with cuisines
+    for (TextFormField cuisine in _cuisines) {
+      if (cuisine.controller?.text != '') {
+        for (MapEntry<int, List<String>> recipe in _recipeCuisines.entries) {
+          if (!recipe.value.contains(cuisine.controller?.text)) {
+            invalidRecipeIDs.add(recipe.key);
+          }
+        }
+      }
+    }
+
+    // remove invalid again
+    filtered.removeWhere(
+        (element) => invalidRecipeIDs.contains(element['RecipeID']));
 
     return filtered;
   }
@@ -165,10 +208,8 @@ class BrowseRecipesState extends State<BrowseRecipes> {
                   onSort: (index, asc) {
                     setState(() {
                       _sortAsc = asc;
-                      _recipes.sort((a, b) => a.rating!.compareTo(b.rating!));
-                      if (!asc) {
-                        _recipes = _recipes.reversed.toList();
-                      }
+                      _sortIndex = index;
+                      _getRecipes();
                     });
                   }),
               DataColumn(
@@ -182,22 +223,23 @@ class BrowseRecipesState extends State<BrowseRecipes> {
                     setState(() {
                       _sortAsc = asc;
                       _sortIndex = index;
-                      _recipes.sort((a, b) => a.rating!.compareTo(b.rating!));
-                      if (!asc) {
-                        _recipes = _recipes.reversed.toList();
-                      }
+                      _getRecipes();
                     });
                   }),
             ],
-            rows: _recipes
+            rows: _filter()
                 .map<DataRow>((recipe) => DataRow(
                         cells: [
-                          DataCell(Text(recipe.id.toString())),
-                          DataCell(Text(recipe.name!)),
-                          DataCell(Text(recipe.author!)),
-                          DataCell(Text(recipe.cuisines!)),
-                          DataCell(Text(recipe.dietTags!)),
-                          DataCell(Text(recipe.rating.toString())),
+                          DataCell(Text('${recipe['RecipeID']}')),
+                          DataCell(Text(recipe['Name'])),
+                          DataCell(Text(recipe['Author'])),
+                          DataCell(Text(
+                              _recipeCuisines[recipe['RecipeID']]?.join(', ') ??
+                                  '')),
+                          DataCell(Text(
+                              _recipeDietTags[recipe['RecipeID']]?.join(', ') ??
+                                  '')),
+                          DataCell(Text('${recipe['Rating']}')),
                           DataCell(Text(widget.chef ? ' ' : 'N/A'))
                         ],
                         onSelectChanged: (selected) {
@@ -207,7 +249,12 @@ class BrowseRecipesState extends State<BrowseRecipes> {
                                 mainAxisSize: MainAxisSize.min,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  recipe,
+                                  Recipe(
+                                    formKey: GlobalKey(),
+                                    editable: widget.chef,
+                                    id: recipe['RecipeID'],
+                                    email: widget.email,
+                                  ),
                                   Visibility(
                                     visible: widget.chef,
                                     child: Padding(

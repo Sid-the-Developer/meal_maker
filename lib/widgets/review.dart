@@ -5,12 +5,17 @@ import 'package:meal_planner/globals.dart';
 import 'center_form.dart';
 
 class ReviewTable extends StatefulWidget {
-  final List<int> recipeIDs;
+  final int recipeID;
   final bool chef;
   final String? recipeName;
+  final String email;
 
   const ReviewTable(
-      {Key? key, required this.recipeIDs, this.recipeName, required this.chef})
+      {Key? key,
+      required this.recipeID,
+      required this.recipeName,
+      required this.chef,
+      required this.email})
       : super(key: key);
 
   @override
@@ -18,17 +23,23 @@ class ReviewTable extends StatefulWidget {
 }
 
 class ReviewTableState extends State<ReviewTable> {
-  late List _reviews;
+  late List<Map<String, dynamic>> _reviews;
   final _reviewKey = GlobalKey<FormState>();
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
-    _reviews = [
-      // placeholder for 3 rows
-      Object(), Object(), Object()
-    ];
+    _parseReviewsFromRecipeID();
+  }
+
+  void _parseReviewsFromRecipeID() async {
+    _reviews = dbResultToMap(
+        await db.query(
+            'SELECT ReviewID, Name, Rating, ReviewComment, '
+            'FROM USER NATURAL JOIN REVIEW '
+            'WHERE RecipeID = ?',
+            [widget.recipeID]),
+        ['ReviewID', 'User', 'Rating', 'Comment']);
   }
 
   @override
@@ -84,12 +95,12 @@ class ReviewTableState extends State<ReviewTable> {
                 )),
               ),
             ],
-            rows: widget.recipeIDs
+            rows: _reviews
                 .map<DataRow>((review) => DataRow(cells: [
-                      DataCell(Text('$review')),
-                      DataCell(Text('$review Wila')),
-                      DataCell(Text('$review 4')),
-                      DataCell(Text('$review It was bussin'))
+                      DataCell(Text('${review['RecipeID']}')),
+                      DataCell(Text('${review['User']}')),
+                      DataCell(Text('${review['Rating']}')),
+                      DataCell(Text('${review['Comment'] ?? ''}'))
                     ]))
                 .toList(),
           ),
@@ -102,7 +113,9 @@ class ReviewTableState extends State<ReviewTable> {
           child: ElevatedButton(
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (context) => ReviewPage(
-                        formKey: _reviewKey,
+                    formKey: _reviewKey,
+                        recipeID: widget.recipeID,
+                        email: widget.email,
                       ))),
               child: const Text('Write Review')),
         ),
@@ -114,8 +127,15 @@ class ReviewTableState extends State<ReviewTable> {
 
 class ReviewPage extends StatefulWidget {
   final GlobalKey<FormState> formKey;
+  final String email;
+  final int recipeID;
 
-  const ReviewPage({Key? key, required this.formKey}) : super(key: key);
+  const ReviewPage(
+      {Key? key,
+      required this.formKey,
+      required this.email,
+      required this.recipeID})
+      : super(key: key);
 
   @override
   State<StatefulWidget> createState() => ReviewPageState();
@@ -128,8 +148,13 @@ class ReviewPageState extends State<ReviewPage> {
   _save() {
     if (widget.formKey.currentState?.validate() ?? false) {
       widget.formKey.currentState?.save();
-      // TODO sql
-      Navigator.of(context).pop();
+
+      db.query(
+          'INSERT INTO REVIEW (Email, RecipeID, ReviewComment, Rating) '
+          'VALUES (?, ?, ?, ?)',
+          [widget.email, widget.recipeID, _comment, _rating]);
+
+      if (mounted) Navigator.of(context).pop();
     }
   }
 

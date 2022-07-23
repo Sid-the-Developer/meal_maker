@@ -124,10 +124,24 @@ class GroceryRunState extends State<GroceryRun> {
                         )))
                       ],
                       rows: _checklist
-                          .map((run) => DataRow(cells: [
-                                DataCell(Text('_checklist[0] 1st value')),
-                                DataCell(Text('_checklist[0] second value'))
-                              ]))
+                          .map((run) => DataRow(
+                                  onSelectChanged: (selected) {
+                                    if (selected != null) {
+                                      if (selected) {
+                                        // add to db
+                                        setState(() => _checklist.add('run'));
+                                      } else if (!selected) {
+                                        // remove from db
+                                        setState(() {
+                                          _checklist.remove(run);
+                                        });
+                                      }
+                                    }
+                                  },
+                                  cells: [
+                                    DataCell(Text('_checklist[0] 1st value')),
+                                    DataCell(Text('_checklist[0] second value'))
+                                  ]))
                           .toList()),
                 ),
               ],
@@ -188,7 +202,10 @@ class GroceryRunState extends State<GroceryRun> {
                         icon: const Icon(Icons.add_circle),
                         onPressed: () {
                           if (_dropdownKey.currentState?.validate() ?? false) {
-                            _meals.add(_newMeal!);
+                            setState(() {
+                              _meals.add(_newMeal!);
+                              _newMeal = null;
+                            });
                           }
                         },
                       ),

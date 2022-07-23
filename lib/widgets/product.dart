@@ -1,26 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mysql1/mysql1.dart';
 import '../globals.dart';
 
 import 'center_form.dart';
 import 'multifield.dart';
 
-final List<String> _allProducts = [];
+// initialize product list
+List<String> _allProducts = [];
 
 class ProductTable extends StatefulWidget {
-  const ProductTable({Key? key, this.editable = false}) : super(key: key);
+  const ProductTable(
+      {Key? key,
+      this.editable = false,
+      this.chef = false,
+      this.recipeIDs = const []})
+      : super(key: key);
   final bool editable;
+  final bool chef;
+  final List<int> recipeIDs;
+  final Map<String, List> _recipeProducts = const {};
+
+  addToDB(int recipeID) {
+    // save products to uses
+    db.queryMulti(
+        'INSERT INTO USES (RecipeID, ProductName, Amount) '
+        'VALUES (?, ?, ?)',
+        _recipeProducts.entries
+            .map((entry) => [recipeID, entry.key, entry.value])
+            .toList());
+  }
 
   @override
   State<StatefulWidget> createState() => ProductTableState();
 }
 
 class ProductTableState extends State<ProductTable> {
-  final Map<String, int> _recipeProducts = {};
-
   late int _amount;
   String? _productDropdown;
-  GlobalKey<FormFieldState> _amountKey = GlobalKey();
+  final GlobalKey<FormFieldState> _amountKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _parseProductsFromRecipes();
+    _getProducts();
+  }
+
+  _getProducts() async {
+    _allProducts = List<String>.of((await db.query('SELECT ProductName '
+            'FROM PRODUCT'))
+        .map((row) => row[0]));
+  }
+
+  _parseProductsFromRecipes() async {
+    for (int id in widget.recipeIDs) {
+      Results products = await db.query(
+          'SELECT ProductName, Amount, Units '
+          'FROM USES WHERE RecipeID = ?',
+          [id]);
+      for (var product in products) {
+        widget._recipeProducts[product[0]] = [product[1], product[2]];
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +83,7 @@ class ProductTableState extends State<ProductTable> {
                   DataColumn(label: Text('Amount'), numeric: true),
                   DataColumn(label: Text(''))
                 ],
-                rows: _recipeProducts.entries
+                rows: widget._recipeProducts.entries
                     .map((MapEntry entry) => DataRow(cells: [
                           DataCell(
                             ConstrainedBox(
@@ -57,8 +100,9 @@ class ProductTableState extends State<ProductTable> {
                                 onChanged: (newProduct) {
                                   if (newProduct != null) {
                                     setState(() {
-                                      _recipeProducts.remove(entry.key);
-                                      _recipeProducts[newProduct] = entry.value;
+                                      widget._recipeProducts.remove(entry.key);
+                                      widget._recipeProducts[newProduct] =
+                                          entry.value;
                                     });
                                   }
                                 },
@@ -69,17 +113,18 @@ class ProductTableState extends State<ProductTable> {
                             ),
                           ),
                           DataCell(TextFormField(
-                            decoration: const InputDecoration(
+                            decoration: InputDecoration(
                               hintText: 'Amount',
-                              suffixText: 'g', // TODO complete dynamic units
+                              suffixText:
+                                  entry.value[1], // TODO complete dynamic units
                             ),
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly
                             ],
-                            initialValue: entry.value.toString(),
+                            initialValue: entry.value[0].toString(),
                             onChanged: (value) {
                               setState(() {
-                                _recipeProducts[entry.key] =
+                                widget._recipeProducts[entry.key]![0] =
                                     int.tryParse(value) ?? 0;
                               });
                             },
@@ -89,50 +134,56 @@ class ProductTableState extends State<ProductTable> {
                               child: IconButton(
                                 icon: const Icon(Icons.remove_circle),
                                 onPressed: () {
-                                  setState(
-                                      () => _recipeProducts.remove(entry.key));
+                                  setState(() =>
+                                      widget._recipeProducts.remove(entry.key));
                                 },
                               )))
                         ]))
                     .toList()),
           ),
         ),
-    Visibility(
-    visible: widget.editable,
-    child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: SizedBox(
-                width: 200,
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  value: _productDropdown,
-                  items: _allProducts
-                      .map((product) => DropdownMenuItem<String>(
-                          value: product, child: Text(product)))
-                      .toList(),
-                  onChanged: (product) {
-                    setState(() => _productDropdown = product);
-                  },
-                  hint: const Text('New Product'),
+        Visibility(
+            visible: widget.editable,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    width: 200,
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: _productDropdown,
+                      items: _allProducts
+                          .map((product) => DropdownMenuItem<String>(
+                              value: product, child: Text(product)))
+                          .toList(),
+                      onChanged: (product) {
+                        setState(() => _productDropdown = product);
+                      },
+                      hint: const Text('New Product'),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: SizedBox(
-                width: 100,
-                child: TextFormField(
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    width: 100,
+                    child: TextFormField(
                       key: _amountKey,
                       decoration: const InputDecoration(hintText: 'Amount'),
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      onFieldSubmitted: (amount) {
+                      onFieldSubmitted: (amount) async {
                         if (_productDropdown != null) {
+                          Results units = await db.query(
+                              'SELECT Units '
+                              'FROM PRODUCT WHERE ProductName = ?',
+                              [_productDropdown]);
                           setState(() {
-                            _recipeProducts[_productDropdown!] =
-                                int.tryParse(amount) ?? 0;
+                            widget._recipeProducts[_productDropdown!] = [
+                              int.tryParse(amount) ?? 0,
+                              units.first.first
+                            ];
                             _productDropdown = null;
                             _amountKey.currentState?.reset();
                           });
@@ -142,20 +193,27 @@ class ProductTableState extends State<ProductTable> {
                         _amount = int.tryParse(amount) ?? 0;
                       },
                     ),
-              ),
-            ),
-            IconButton(
-                    onPressed: () {
+                  ),
+                ),
+                IconButton(
+                    onPressed: () async {
                       if (_productDropdown != null) {
+                        Results units = await db.query(
+                            'SELECT Units '
+                            'FROM PRODUCT WHERE ProductName = ?',
+                            [_productDropdown]);
                         setState(() {
-                          _recipeProducts[_productDropdown!] = _amount;
+                          widget._recipeProducts[_productDropdown!] = [
+                            _amount,
+                            units.first.first
+                          ];
                           _productDropdown = null;
                         });
                       }
                     },
                     icon: const Icon(Icons.add_circle)),
-          ],
-        )),
+              ],
+            )),
         Visibility(
           visible: widget.editable,
           child: Padding(
@@ -183,6 +241,7 @@ class ProductDialogState extends State<ProductDialog> {
   bool _isTool = false;
   final List<TextFormField> _typeFields = [];
   late final String? _units;
+  late final String? _name;
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +261,7 @@ class ProductDialogState extends State<ProductDialog> {
                         decoration: const InputDecoration(labelText: 'Name'),
                         textInputAction: TextInputAction.next,
                         validator: nullValidator,
-                        onSaved: (name) => _allProducts.add(name!),
+                        onSaved: (name) => _name = name,
                       ),
                     ),
                     SizedBox(
@@ -236,15 +295,28 @@ class ProductDialogState extends State<ProductDialog> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
                       child: ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             if (_productFormKey.currentState?.validate() ??
                                 false) {
                               _productFormKey.currentState?.save();
+                              db.query('INSERT INTO PRODUCT VALUES (?, ?, ?)', [
+                                _name,
+                                _units,
+                                _isTool ? 'Tool' : 'Ingredient'
+                              ]);
+                              db.queryMulti(
+                                  'INSERT INTO INGREDIENT_TYPE VALUES (?, ?)',
+                                  _typeFields
+                                      .map((type) =>
+                                          [_name, type.controller?.text])
+                                      .toList());
 
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                  content: Text(
-                                      '${_allProducts.last} added successfully')));
-                              Navigator.of(context).pop(true);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                    content: Text(
+                                        '${_allProducts.last} added successfully')));
+                                Navigator.of(context).pop(true);
+                              }
                             }
                           },
                           child: const Text('Save')),

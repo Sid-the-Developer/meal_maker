@@ -1,41 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:meal_planner/globals.dart';
 import 'package:meal_planner/widgets/recipe.dart';
 
 class RecipeTable extends StatefulWidget {
-  const RecipeTable({Key? key, this.userIDs = const []}) : super(key: key);
-  final List<String> userIDs;
+  const RecipeTable({Key? key, required this.email}) : super(key: key);
+  final String email;
 
   @override
   State<StatefulWidget> createState() => RecipeTableState();
 }
 
 class RecipeTableState extends State<RecipeTable> {
-  late List _recipes;
+  late List<Map<String, dynamic>> _recipes;
   int _sortIndex = 0;
   bool _sortAsc = true;
 
   @override
   void initState() {
-    // TODO: initialize _recipes with matching query
     super.initState();
-    // placeholder for testing
-    _recipes = [
-      Recipe(
-        name: 'Paella',
-        rating: 4,
-        author: 'Wila',
-        id: 1,
-        formKey: GlobalKey<FormState>(),
-      ),
-      Recipe(
-        name: 'Bomba',
-        rating: 3,
-        author: 'Rob',
-        id: 3,
-        formKey: GlobalKey<FormState>(),
-      )
-    ];
+    _sortName().then((value) => _recipes = value);
   }
+
+  Future<List<Map<String, dynamic>>> _sortName() async => dbResultToMap(
+      await db.query(
+          'SELECT RECIPE.RecipeID, RecipeName, AVG(Rating) '
+          'FROM RECIPE JOIN REVIEW '
+          'ON RECIPE.RecipeID = REVIEW.RecipeID '
+          'WHERE RECIPE.Email = ? '
+          'GROUP BY RECIPE.RecipeID '
+          'ORDER BY RecipeName ${_sortAsc ? 'ASC' : 'DESC'}',
+          [widget.email]),
+      ['RecipeID', 'Name', 'Rating']);
+
+  Future<List<Map<String, dynamic>>> _sortRating() async => dbResultToMap(
+      await db.query(
+          'SELECT RECIPE.RecipeID, RecipeName, AVG(Rating) as Avg '
+          'FROM RECIPE JOIN REVIEW '
+          'ON RECIPE.RecipeID = REVIEW.RecipeID '
+          'WHERE RECIPE.Email = ? '
+          'GROUP BY RECIPE.RecipeID '
+          'ORDER BY Avg ${_sortAsc ? 'ASC' : 'DESC'}',
+          [widget.email]),
+      ['RecipeID', 'Name', 'Rating']);
 
   @override
   Widget build(BuildContext context) {
@@ -62,10 +68,7 @@ class RecipeTableState extends State<RecipeTable> {
                 setState(() {
                   _sortAsc = asc;
                   _sortIndex = index;
-                  _recipes.sort((a, b) => a.name!.compareTo(b.name!));
-                  if (!asc) {
-                    _recipes = _recipes.reversed.toList();
-                  }
+                  _sortName().then((value) => _recipes = value);
                 });
               }),
           DataColumn(
@@ -75,25 +78,26 @@ class RecipeTableState extends State<RecipeTable> {
                 setState(() {
                   _sortAsc = asc;
                   _sortIndex = index;
-                  _recipes.sort((a, b) => a.rating!.compareTo(b.rating!));
-                  if (!asc) {
-                    _recipes = _recipes.reversed.toList();
-                  }
+                  _sortRating().then((value) => _recipes = value);
                 });
               })
         ],
         rows: _recipes
             .map<DataRow>((recipe) => DataRow(
                     cells: [
-                      DataCell(Text(recipe.id.toString())),
-                      DataCell(Text(recipe.name!)),
-                      DataCell(Text(recipe.rating.toString()))
+                      DataCell(Text(recipe['RecipeID'])),
+                      DataCell(Text(recipe['Name'])),
+                      DataCell(Text(recipe['Rating']))
                     ],
                     onSelectChanged: (selected) {
                       if (selected ?? false) {
                         Navigator.of(context).push(MaterialPageRoute(
-                            builder: (context) => recipe,
-                                ));
+                          builder: (context) => Recipe(
+                            formKey: GlobalKey(),
+                            id: recipe[0],
+                            email: widget.email,
+                          ),
+                        ));
                       }
                     }))
             .toList(),

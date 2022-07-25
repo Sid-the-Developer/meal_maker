@@ -90,7 +90,7 @@ class _LoginPageState extends State<LoginPage> {
                       decoration: const InputDecoration(labelText: 'Email *'),
                       validator: emailValidator,
                       onSaved: (value) {
-                        _email = value!;
+                        _email = value!.toLowerCase();
                       },
                       textInputAction: TextInputAction.next,
                     ),

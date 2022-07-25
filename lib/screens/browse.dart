@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:meal_planner/widgets/center_form.dart';
 import 'package:meal_planner/widgets/recipe.dart';
+import 'package:intl/intl.dart';
 
 import '../globals.dart';
 import '../widgets/multifield.dart';
@@ -16,18 +17,18 @@ class BrowseRecipes extends StatefulWidget {
 }
 
 class BrowseRecipesState extends State<BrowseRecipes> {
-  late List<Map<String, dynamic>> _recipes = [];
-  late Map<int, List<String>> _recipeCuisines = {};
-  late Map<int, List<String>> _recipeDietTags = {};
+  List<Map<String, dynamic>> _recipes = [];
+  late List<Map<String, dynamic>> _filteredList = _filter();
+  late final Map<int, Set<String>> _recipeCuisines = {};
+  late final Map<int, Set<String>> _recipeDietTags = {};
   final List<TextFormField> _dietTags = [];
   final List<TextFormField> _cuisines = [];
-
-  bool _sortAsc = true;
+  bool _sortAsc = false;
   int _sortIndex = 5;
+
+  // plan meal
   final GlobalKey<FormState> _mealKey = GlobalKey();
-  int? year;
-  int? month;
-  int? day;
+  DateTime? _date;
 
   @override
   void initState() {
@@ -38,11 +39,11 @@ class BrowseRecipesState extends State<BrowseRecipes> {
   void _getRecipes() async {
     _recipes = dbResultToMap(
         await db.query(
-            'SELECT REVIEW.RecipeID, TMP.RecipeName, TMP.Name, AVG(Rating) AS Avg '
-            'FROM REVIEW JOIN (SELECT RecipeID, Name, RecipeName '
+            'SELECT TMP.RecipeID, TMP.RecipeName, TMP.Name, AVG(Rating) AS Avg '
+            'FROM REVIEW RIGHT OUTER JOIN (SELECT RecipeID, Name, RecipeName '
             'FROM USER NATURAL JOIN RECIPE) AS TMP '
             'ON REVIEW.RecipeID = TMP.RecipeID '
-            'GROUP BY TMP.RecipeID'
+            'GROUP BY TMP.RecipeID '
             'ORDER BY Avg ${_sortAsc ? 'ASC' : 'DESC'}'),
         ['RecipeID', 'Name', 'Author', 'Rating']);
 
@@ -53,7 +54,7 @@ class BrowseRecipesState extends State<BrowseRecipes> {
       if (_recipeDietTags[map['RecipeID']] != null) {
         _recipeDietTags[map['RecipeID']]?.add(map['Diet Tag']);
       } else {
-        _recipeDietTags[map['RecipeID']] = [map['Diet Tag']];
+        _recipeDietTags[map['RecipeID']] = {map['Diet Tag']};
       }
     }
 
@@ -64,9 +65,33 @@ class BrowseRecipesState extends State<BrowseRecipes> {
       if (_recipeCuisines[map['RecipeID']] != null) {
         _recipeCuisines[map['RecipeID']]?.add(map['Cuisine']);
       } else {
-        _recipeCuisines[map['RecipeID']] = [map['Cuisine']];
+        _recipeCuisines[map['RecipeID']] = {map['Cuisine']};
       }
     }
+
+    // % OWN
+    if (widget.chef) {
+      for (var recipe in _recipes) {
+        int productsInRecipe = (await db.query(
+                'SELECT COUNT(*) FROM USES WHERE RecipeID = ?',
+                [recipe['RecipeID']]))
+            .first
+            .first;
+        int ownedProducts = (await db.query(
+                'SELECT COUNT(*) FROM OWNS NATURAL JOIN '
+                '(SELECT ProductName, Amount as RecipeAmount '
+                'FROM USES WHERE RecipeID = ?) AS TEMP '
+                'WHERE Email = ? AND OWNS.Amount >= RecipeAmount',
+                [recipe['RecipeID'], widget.email]))
+            .first
+            .first;
+        recipe['% Owned'] = (ownedProducts / productsInRecipe) * 100;
+      }
+    }
+
+    setState(() {
+      _filteredList = _filter();
+    });
   }
 
   List<Map<String, dynamic>> _filter() {
@@ -77,9 +102,10 @@ class BrowseRecipesState extends State<BrowseRecipes> {
 
     // find recipes that do not contain at least one of the filters then remove them
     for (TextFormField dietTag in _dietTags) {
-      if (dietTag.controller?.text != '') {
-        for (MapEntry<int, List<String>> recipe in _recipeDietTags.entries) {
-          if (!recipe.value.contains(dietTag.controller?.text)) {
+      if (dietTag.controller?.text.trim() != null &&
+          dietTag.controller?.text.trim() != '') {
+        for (MapEntry<int, Set<String>> recipe in _recipeDietTags.entries) {
+          if (!recipe.value.contains(dietTag.controller?.text.trim())) {
             invalidRecipeIDs.add(recipe.key);
           }
         }
@@ -89,12 +115,14 @@ class BrowseRecipesState extends State<BrowseRecipes> {
     // remove invalid diettags to make cuisine loop faster
     filtered.removeWhere(
         (element) => invalidRecipeIDs.contains(element['RecipeID']));
+    // print(filtered);
 
     // do the same with cuisines
     for (TextFormField cuisine in _cuisines) {
-      if (cuisine.controller?.text != '') {
-        for (MapEntry<int, List<String>> recipe in _recipeCuisines.entries) {
-          if (!recipe.value.contains(cuisine.controller?.text)) {
+      if (cuisine.controller?.text.trim() != null &&
+          cuisine.controller?.text.trim() != '') {
+        for (MapEntry<int, Set<String>> recipe in _recipeCuisines.entries) {
+          if (!recipe.value.contains(cuisine.controller?.text.trim())) {
             invalidRecipeIDs.add(recipe.key);
           }
         }
@@ -104,16 +132,78 @@ class BrowseRecipesState extends State<BrowseRecipes> {
     // remove invalid again
     filtered.removeWhere(
         (element) => invalidRecipeIDs.contains(element['RecipeID']));
+    // print(filtered);
 
     return filtered;
   }
 
-  _save() {
+  _save(int id) async {
     if (_mealKey.currentState?.validate() ?? false) {
       _mealKey.currentState?.save();
-      // TODO sql
-      Navigator.of(context).pop();
+      await db.query('INSERT INTO MEAL VALUES (?, ?, ?)',
+          [id, widget.email, DateFormat('yyyy-MM-dd').format(_date!)]);
+      if (mounted) Navigator.of(context).pop();
     }
+  }
+
+  Widget _buildRecipeView(int id) {
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Recipe(
+            formKey: GlobalKey<FormState>(),
+            editable: false,
+            chef: widget.chef,
+            id: id,
+            email: widget.email,
+          ),
+          Visibility(
+            visible: widget.chef,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+              child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => _buildMeal(id)));
+                  },
+                  child: const Text('Plan Meal')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeal(int id) {
+    return CenterForm(
+        title: 'Recipe - Plan Meal',
+        formKey: _mealKey,
+        children: [
+          SizedBox(
+            width: 200,
+            child: InputDatePickerFormField(
+              initialDate: DateTime.now(),
+              lastDate: DateTime(DateTime.now().year + 100),
+              errorInvalidText: 'Invalid date: must be in the future',
+              errorFormatText: 'Must be in date format',
+              firstDate: DateTime.now(),
+              onDateSubmitted: (_) => _save(id),
+              onDateSaved: (date) {
+                _date = date;
+              },
+            ),
+          ),
+          Visibility(
+            visible: widget.chef,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+              child: ElevatedButton(
+                  onPressed: _save(id), child: const Text('Save')),
+            ),
+          ),
+        ]);
   }
 
   @override
@@ -130,8 +220,8 @@ class BrowseRecipesState extends State<BrowseRecipes> {
         ),
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Wrap(
+            alignment: WrapAlignment.center,
             children: [
               const Text(
                 'Filters',
@@ -140,11 +230,17 @@ class BrowseRecipesState extends State<BrowseRecipes> {
               MultiField(
                 fields: _dietTags,
                 field: dietTagField,
+                onSubmit: (_) => setState(() {
+                  _filteredList = _filter();
+                }),
                 editable: true,
               ),
               MultiField(
                 fields: _cuisines,
                 field: cuisineField,
+                onSubmit: (_) => setState(() {
+                  _filteredList = _filter();
+                }),
                 editable: true,
               ),
             ],
@@ -153,184 +249,107 @@ class BrowseRecipesState extends State<BrowseRecipes> {
         ConstrainedBox(
           constraints:
               BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .75),
-          child: DataTable(
-            showCheckboxColumn: false,
-            sortAscending: _sortAsc,
-            sortColumnIndex: _sortIndex,
-            // border: TableBorder.all(),
-            columns: [
-              const DataColumn(
+          child: SingleChildScrollView(
+            child: DataTable(
+              showCheckboxColumn: false,
+              sortAscending: _sortAsc,
+              sortColumnIndex: _sortIndex,
+              // border: TableBorder.all(),
+              columns: [
+                const DataColumn(
+                    label: Center(
+                      child: Text(
+                        'ID',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    numeric: true),
+                const DataColumn(
+                  label: Center(
+                      child: Text(
+                    'Name',
+                    textAlign: TextAlign.center,
+                  )),
+                ),
+                const DataColumn(
+                    label: Center(
+                      child: Text(
+                        'Author',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    numeric: true),
+                const DataColumn(
                   label: Center(
                     child: Text(
-                      'ID',
+                      'Cuisines',
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  numeric: true),
-              const DataColumn(
-                label: Center(
-                    child: Text(
-                  'Name',
-                  textAlign: TextAlign.center,
-                )),
-              ),
-              const DataColumn(
+                ),
+                const DataColumn(
                   label: Center(
                     child: Text(
-                      'Author',
+                      'Diet Tags',
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  numeric: true),
-              const DataColumn(
-                label: Center(
-                  child: Text(
-                    'Cuisines',
-                    textAlign: TextAlign.center,
-                  ),
                 ),
-              ),
-              const DataColumn(
-                label: Center(
-                  child: Text(
-                    'Diet Tags',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-              DataColumn(
-                  label: const Center(
-                      child: Text(
-                    'Avg Rating',
-                    textAlign: TextAlign.center,
-                  )),
-                  numeric: true,
-                  onSort: (index, asc) {
-                    setState(() {
-                      _sortAsc = asc;
-                      _sortIndex = index;
-                      _getRecipes();
-                    });
-                  }),
-              DataColumn(
-                  label: const Center(
-                      child: Text(
-                    '% Own',
-                    textAlign: TextAlign.center,
-                  )),
-                  numeric: true,
-                  onSort: (index, asc) {
-                    setState(() {
-                      _sortAsc = asc;
-                      _sortIndex = index;
-                      _getRecipes();
-                    });
-                  }),
-            ],
-            rows: _filter()
-                .map<DataRow>((recipe) => DataRow(
-                        cells: [
-                          DataCell(Text('${recipe['RecipeID']}')),
-                          DataCell(Text(recipe['Name'])),
-                          DataCell(Text(recipe['Author'])),
-                          DataCell(Text(
-                              _recipeCuisines[recipe['RecipeID']]?.join(', ') ??
-                                  '')),
-                          DataCell(Text(
-                              _recipeDietTags[recipe['RecipeID']]?.join(', ') ??
-                                  '')),
-                          DataCell(Text('${recipe['Rating']}')),
-                          DataCell(Text(widget.chef ? ' ' : 'N/A'))
-                        ],
-                        onSelectChanged: (selected) {
-                          if (selected ?? false) {
-                            Navigator.of(context).push(MaterialPageRoute(
-                              builder: (context) => Column(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Recipe(
-                                    formKey: GlobalKey(),
-                                    editable: widget.chef,
-                                    id: recipe['RecipeID'],
-                                    email: widget.email,
-                                  ),
-                                  Visibility(
-                                    visible: widget.chef,
-                                    child: Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                          8, 16, 8, 8),
-                                      child: ElevatedButton(
-                                          onPressed: () {
-                                            Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        CenterForm(
-                                                            title:
-                                                                'Recipe - Plan Meal',
-                                                            formKey: _mealKey,
-                                                            children: [
-                                                              SizedBox(
-                                                                width: 200,
-                                                                child:
-                                                                    InputDatePickerFormField(
-                                                                  initialDate:
-                                                                      DateTime
-                                                                          .now(),
-                                                                  lastDate: DateTime(
-                                                                      DateTime.now()
-                                                                              .year +
-                                                                          100),
-                                                                  errorInvalidText:
-                                                                      'Invalid date: must be in the future',
-                                                                  errorFormatText:
-                                                                      'Must be in date format',
-                                                                  firstDate:
-                                                                      DateTime
-                                                                          .now(),
-                                                                  onDateSubmitted:
-                                                                      (_) =>
-                                                                          _save(),
-                                                                  onDateSaved:
-                                                                      (date) {
-                                                                    year = date
-                                                                        .year;
-                                                                    month = date
-                                                                        .month;
-                                                                    day = date
-                                                                        .day;
-                                                                  },
-                                                                ),
-                                                              ),
-                                                              Visibility(
-                                                                visible:
-                                                                    widget.chef,
-                                                                child: Padding(
-                                                                  padding:
-                                                                      const EdgeInsets
-                                                                              .fromLTRB(
-                                                                          8,
-                                                                          16,
-                                                                          8,
-                                                                          8),
-                                                                  child: ElevatedButton(
-                                                                      onPressed:
-                                                                          _save,
-                                                                      child: const Text(
-                                                                          'Save')),
-                                                                ),
-                                                              ),
-                                                            ])));
-                                          },
-                                          child: const Text('Plan Meal')),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ));
-                          }
-                        }))
-                .toList(),
+                DataColumn(
+                    label: const Center(
+                        child: Text(
+                      'Avg Rating',
+                      textAlign: TextAlign.center,
+                    )),
+                    numeric: true,
+                    onSort: (index, asc) {
+                      setState(() {
+                        _sortAsc = asc;
+                        _sortIndex = index;
+                        _getRecipes();
+                      });
+                    }),
+                DataColumn(
+                    label: const Center(
+                        child: Text(
+                      '% Owned',
+                      textAlign: TextAlign.center,
+                    )),
+                    numeric: true,
+                    onSort: (index, asc) {
+                      setState(() {
+                        _sortAsc = asc;
+                        _sortIndex = index;
+                        _getRecipes();
+                      });
+                    }),
+              ],
+              rows: _filteredList
+                  .map<DataRow>((recipe) => DataRow(
+                          cells: [
+                            DataCell(Text('${recipe['RecipeID']}')),
+                            DataCell(Text(recipe['Name'])),
+                            DataCell(Text(recipe['Author'])),
+                            DataCell(Text(_recipeCuisines[recipe['RecipeID']]
+                                    ?.join(', ') ??
+                                '')),
+                            DataCell(Text(_recipeDietTags[recipe['RecipeID']]
+                                    ?.join(', ') ??
+                                '')),
+                            DataCell(
+                                Text('${recipe['Rating'] ?? 'No Ratings'}')),
+                            DataCell(Text(
+                                recipe['% Owned']?.toStringAsFixed(2) ?? 'N/A'))
+                          ],
+                          onSelectChanged: (selected) {
+                            if (selected ?? false) {
+                              Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (context) =>
+                                      _buildRecipeView(recipe['RecipeID'])));
+                            }
+                          }))
+                  .toList(),
+            ),
           ),
         ),
       ],

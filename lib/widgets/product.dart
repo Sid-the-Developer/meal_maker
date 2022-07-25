@@ -6,11 +6,8 @@ import '../globals.dart';
 import 'center_form.dart';
 import 'multifield.dart';
 
-// initialize product list
-List<String> _allProducts = [];
-
 class ProductTable extends StatefulWidget {
-  const ProductTable(
+  ProductTable(
       {Key? key,
       this.editable = false,
       this.chef = false,
@@ -19,7 +16,7 @@ class ProductTable extends StatefulWidget {
   final bool editable;
   final bool chef;
   final List<int> recipeIDs;
-  final Map<String, List> _recipeProducts = const {};
+  final Map<String, List> _recipeProducts = {};
 
   addToDB(int recipeID) {
     // save products to uses
@@ -27,7 +24,7 @@ class ProductTable extends StatefulWidget {
         'INSERT INTO USES (RecipeID, ProductName, Amount) '
         'VALUES (?, ?, ?)',
         _recipeProducts.entries
-            .map((entry) => [recipeID, entry.key, entry.value])
+            .map((entry) => [recipeID, entry.key, entry.value[0]])
             .toList());
   }
 
@@ -39,30 +36,26 @@ class ProductTableState extends State<ProductTable> {
   late int _amount;
   String? _productDropdown;
   final GlobalKey<FormFieldState> _amountKey = GlobalKey();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _parseProductsFromRecipes();
-    _getProducts();
-  }
-
-  _getProducts() async {
-    _allProducts = List<String>.of((await db.query('SELECT ProductName '
-            'FROM PRODUCT'))
-        .map((row) => row[0]));
+    getProducts();
   }
 
   _parseProductsFromRecipes() async {
     for (int id in widget.recipeIDs) {
       Results products = await db.query(
           'SELECT ProductName, Amount, Units '
-          'FROM USES WHERE RecipeID = ?',
+          'FROM USES NATURAL JOIN PRODUCT WHERE RecipeID = ?',
           [id]);
       for (var product in products) {
         widget._recipeProducts[product[0]] = [product[1], product[2]];
       }
     }
+    setState(() {});
   }
 
   @override
@@ -70,9 +63,10 @@ class ProductTableState extends State<ProductTable> {
     return Column(
       children: [
         Scrollbar(
+          controller: _scrollController,
           thumbVisibility: true,
           child: SingleChildScrollView(
-            controller: ScrollController(),
+            controller: _scrollController,
             child: DataTable(
                 decoration: BoxDecoration(
                   border: Border.all(width: 1, color: Colors.grey),
@@ -93,19 +87,22 @@ class ProductTableState extends State<ProductTable> {
                               child: DropdownButtonFormField<String>(
                                 isExpanded: true,
                                 value: entry.key,
-                                items: _allProducts
+                                items: allProducts
                                     .map((product) => DropdownMenuItem<String>(
                                         value: product, child: Text(product)))
                                     .toList(),
-                                onChanged: (newProduct) {
-                                  if (newProduct != null) {
-                                    setState(() {
-                                      widget._recipeProducts.remove(entry.key);
-                                      widget._recipeProducts[newProduct] =
-                                          entry.value;
-                                    });
-                                  }
-                                },
+                                onChanged: widget.editable
+                                    ? (newProduct) {
+                                        if (newProduct != null) {
+                                          setState(() {
+                                            widget._recipeProducts
+                                                .remove(entry.key);
+                                            widget._recipeProducts[newProduct] =
+                                                entry.value;
+                                          });
+                                        }
+                                      }
+                                    : null,
                                 hint: const Text('Product'),
                                 decoration: const InputDecoration.collapsed(
                                     hintText: 'Product'),
@@ -122,6 +119,7 @@ class ProductTableState extends State<ProductTable> {
                               FilteringTextInputFormatter.digitsOnly
                             ],
                             initialValue: entry.value[0].toString(),
+                            enabled: widget.editable,
                             onChanged: (value) {
                               setState(() {
                                 widget._recipeProducts[entry.key]![0] =
@@ -154,7 +152,7 @@ class ProductTableState extends State<ProductTable> {
                     child: DropdownButtonFormField<String>(
                       isExpanded: true,
                       value: _productDropdown,
-                      items: _allProducts
+                      items: allProducts
                           .map((product) => DropdownMenuItem<String>(
                               value: product, child: Text(product)))
                           .toList(),
@@ -314,7 +312,7 @@ class ProductDialogState extends State<ProductDialog> {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                     content: Text(
-                                        '${_allProducts.last} added successfully')));
+                                        '${allProducts.last} added successfully')));
                                 Navigator.of(context).pop(true);
                               }
                             }

@@ -4,6 +4,15 @@ import 'package:mysql1/mysql1.dart';
 
 /// file for global variables that can be imported in other files
 
+// initialize product list
+List<String> allProducts = [];
+
+getProducts() async {
+  allProducts = List<String>.of((await db.query('SELECT ProductName '
+          'FROM PRODUCT'))
+      .map((row) => row[0]));
+}
+
 // text form validators
 String? Function(String?) emailValidator = (email) => email != null &&
         RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
@@ -16,48 +25,56 @@ String? Function(String?) pswdValidator = (pswd) =>
         ? null
         : 'Passwords must be at least 8 characters and contain a number';
 
-String? Function(String?) nullValidator = (text) => text != null && text  != '' ? null
-    : 'Field cannot be empty';
+String? Function(String?) nullValidator =
+    (text) => text != null && text != '' ? null : 'Field cannot be empty';
 
 // multifield individual units
-final TextFormField dietTagField = TextFormField(
-  decoration: const InputDecoration(labelText: 'Diet Tag'),
-  validator: nullValidator,
-  textInputAction: TextInputAction.next,
-);
-final TextFormField cuisineField = TextFormField(
-  decoration: const InputDecoration(labelText: 'Cuisine'),
-  validator: nullValidator,
-  textInputAction: TextInputAction.next,
-);
-final TextFormField typeField = TextFormField(
-  decoration: const InputDecoration(labelText: 'Type'),
-  validator: nullValidator,
-  textInputAction: TextInputAction.next,
-);
+TextFormField dietTagField({void Function(String)? onSubmit}) => TextFormField(
+      controller: TextEditingController(),
+      decoration: const InputDecoration(labelText: 'Diet Tag'),
+      validator: nullValidator,
+      onFieldSubmitted: onSubmit,
+      textInputAction: TextInputAction.next,
+    );
+
+TextFormField cuisineField({void Function(String)? onSubmit}) => TextFormField(
+      controller: TextEditingController(),
+      decoration: const InputDecoration(labelText: 'Cuisine'),
+      validator: nullValidator,
+      onFieldSubmitted: onSubmit,
+      textInputAction: TextInputAction.next,
+    );
+
+TextFormField typeField({void Function(String)? onSubmit}) => TextFormField(
+      controller: TextEditingController(),
+      decoration: const InputDecoration(labelText: 'Type'),
+      validator: nullValidator,
+      onFieldSubmitted: onSubmit,
+      textInputAction: TextInputAction.next,
+    );
 
 // not editable
 TextFormField viewDietTagField(String text) => TextFormField(
+      controller: TextEditingController(text: text),
       decoration: const InputDecoration(labelText: 'Diet Tag'),
       validator: nullValidator,
       enabled: false,
-      initialValue: text,
       textInputAction: TextInputAction.next,
     );
 
 TextFormField viewCuisineField(String text) => TextFormField(
+  controller: TextEditingController(text: text),
       decoration: const InputDecoration(labelText: 'Cuisine'),
       validator: nullValidator,
       enabled: false,
-      initialValue: text,
       textInputAction: TextInputAction.next,
     );
 
 TextFormField viewTypeField(String text) => TextFormField(
+  controller: TextEditingController(),
       decoration: const InputDecoration(labelText: 'Type'),
       validator: nullValidator,
       enabled: false,
-      initialValue: text,
       textInputAction: TextInputAction.next,
     );
 

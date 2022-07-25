@@ -5,7 +5,6 @@ import 'package:meal_planner/screens/login.dart';
 import 'package:meal_planner/screens/my_products.dart';
 import 'package:meal_planner/widgets/recipe.dart';
 import 'package:meal_planner/widgets/recipe_table.dart';
-import 'package:mysql1/mysql1.dart';
 
 import '../globals.dart';
 
@@ -31,18 +30,25 @@ class _OverviewPageState extends State<OverviewPage>
     _tab2Key,
     _tab3Key
   ];
-  ValueNotifier<bool> chef = ValueNotifier(false);
-  late final double avgRating;
+  final ValueNotifier<bool> _chef = ValueNotifier(false);
+  late final double _avgRating;
+  Future<bool?> _setAvgRatingFuture =
+      Future.delayed(const Duration(seconds: 10));
+  Future<bool?> _showDialogFuture = Future.delayed(const Duration(seconds: 10));
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    setState(() {
+      _setAvgRatingFuture = _setAvgRating();
+      _showDialogFuture = _buildDialog();
+    });
   }
 
-  Future<bool> setAvgRating() async {
+  Future<bool> _setAvgRating() async {
     try {
-      avgRating = (await db.query(
+      _avgRating = (await db.query(
               'SELECT AVG(Rating) '
               'FROM REVIEW '
               'WHERE REVIEW.Email = ? '
@@ -52,15 +58,36 @@ class _OverviewPageState extends State<OverviewPage>
           .first;
       return true;
     } on Error catch (_) {
-      avgRating = 0;
+      _avgRating = 0;
       return false;
     }
   }
 
+  Future<bool?> _buildDialog() => Future.delayed(
+      const Duration(microseconds: 1),
+      () => showDialog<bool>(
+          barrierDismissible: false,
+          context: context,
+          builder: (BuildContext context) {
+            return SimpleDialog(
+              title: const Text('Home Selection'),
+              children: [
+                SimpleDialogOption(
+                    onPressed: () =>
+                        Navigator.of(context, rootNavigator: true).pop(false),
+                    child: const Text('Contributor')),
+                SimpleDialogOption(
+                    onPressed: () =>
+                        Navigator.of(context, rootNavigator: true).pop(true),
+                    child: const Text('Chef'))
+              ],
+            );
+          }));
+
   List<Widget> _buildTabs() {
     return [
       ValueListenableBuilder(
-          valueListenable: chef,
+          valueListenable: _chef,
           builder: (context, bool newChef, _) {
             return Visibility(
               visible: newChef,
@@ -68,27 +95,29 @@ class _OverviewPageState extends State<OverviewPage>
                 formKey: _recipeKey,
                 editable: true,
                 email: widget.email,
+                chef: _chef.value,
               ),
               child: const GroceryRunTable(),
             );
           }),
       ValueListenableBuilder(
-          valueListenable: chef,
+          valueListenable: _chef,
           builder: (context, bool newChef, _) {
             return Center(
                 child: BrowseRecipes(
-                  chef: newChef,
+              chef: newChef,
               email: widget.email,
             ));
           }),
       ValueListenableBuilder(
-          valueListenable: chef,
+          valueListenable: _chef,
           builder: (context, bool newChef, _) {
             return Visibility(
                 visible: newChef,
                 replacement: Center(
                     child: RecipeTable(
                   email: widget.email,
+                  chef: _chef.value,
                 )),
                 child: MyProductsPage(email: widget.email));
           }),
@@ -98,31 +127,7 @@ class _OverviewPageState extends State<OverviewPage>
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<bool?>>(
-      future: Future.wait([
-        setAvgRating(),
-        Future.delayed(
-            const Duration(microseconds: 1),
-            () => showDialog<bool>(
-                barrierDismissible: false,
-                context: context,
-                builder: (BuildContext context) {
-                  return SimpleDialog(
-                    title: const Text('Home Selection'),
-                    children: [
-                      SimpleDialogOption(
-                          onPressed: () =>
-                              Navigator.of(context, rootNavigator: true)
-                                  .pop(false),
-                          child: const Text('Contributor')),
-                      SimpleDialogOption(
-                          onPressed: () =>
-                              Navigator.of(context, rootNavigator: true)
-                                  .pop(true),
-                          child: const Text('Chef'))
-                    ],
-                  );
-                }))
-      ]),
+      future: Future.wait<bool?>([_setAvgRatingFuture, _showDialogFuture]),
       builder: (context, snapshot) => snapshot.connectionState ==
               ConnectionState.done
           ? Scaffold(
@@ -130,13 +135,13 @@ class _OverviewPageState extends State<OverviewPage>
                 leading: const BackButton(),
                 title: Text.rich(
                   TextSpan(
-                      text: '${chef.value ? 'Chef' : 'Contributor'} Home\n',
+                      text: '${_chef.value ? 'Chef' : 'Contributor'} Home\n',
                       children: [
                         TextSpan(
-                            text: avgRating > 0
-                                ? 'Avg Rating: $avgRating/5.0'
+                            text: _avgRating > 0
+                                ? 'Avg Rating: $_avgRating/5.0'
                                 : 'No ratings',
-                            style: TextStyle(
+                            style: const TextStyle(
                                 fontStyle: FontStyle.italic, fontSize: 14))
                       ]),
                   textAlign: TextAlign.center,
@@ -146,7 +151,7 @@ class _OverviewPageState extends State<OverviewPage>
                   IconButton(
                       onPressed: () {
                         setState(() {
-                          chef.value = !chef.value;
+                          _chef.value = !_chef.value;
                         });
                         _tabKeys[_tabController!.index]
                             .currentState!
@@ -166,13 +171,14 @@ class _OverviewPageState extends State<OverviewPage>
                   controller: _tabController,
                   tabs: [
                     Tab(
-                      child: Text(chef.value ? 'Grocery Runs' : 'Write Recipe'),
+                      child:
+                          Text(_chef.value ? 'Grocery Runs' : 'Write Recipe'),
                     ),
                     const Tab(
                       child: Text('Browse Recipes'),
                     ),
                     Tab(
-                      child: Text('My ${chef.value ? 'Products' : 'Recipes'}'),
+                      child: Text('My ${_chef.value ? 'Products' : 'Recipes'}'),
                     )
                   ],
                 ),

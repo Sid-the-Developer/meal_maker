@@ -5,13 +5,15 @@ class MultiField extends StatefulWidget {
       {Key? key,
       required this.fields,
       this.editable = false,
-      required this.field})
+      required this.field,
+      this.onSubmit})
       : super(key: key) {
-    if (fields.isEmpty) fields.add(field);
+    if (fields.isEmpty && editable) fields.add(field(onSubmit: onSubmit));
   }
 
   final List<Widget> fields;
-  final Widget field;
+  final Widget Function({Function(String)? onSubmit}) field;
+  final Function(String)? onSubmit;
   final bool editable;
 
   @override
@@ -19,6 +21,8 @@ class MultiField extends StatefulWidget {
 }
 
 class MultiFieldState extends State<MultiField> {
+  final ScrollController _scrollController = ScrollController();
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -26,8 +30,8 @@ class MultiFieldState extends State<MultiField> {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-      Container(
-          padding: const EdgeInsets.all(8),
+          Container(
+              padding: const EdgeInsets.all(8),
               margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
               decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(5),
@@ -36,13 +40,14 @@ class MultiFieldState extends State<MultiField> {
               constraints: const BoxConstraints(
                 minHeight: 50,
                 minWidth: 100,
-                maxWidth: 300,
+                maxWidth: 400,
                 maxHeight: 200,
               ),
               child: Scrollbar(
                 thumbVisibility: true,
+                controller: _scrollController,
                 child: GridView.count(
-                  controller: ScrollController(),
+                  controller: _scrollController,
                   childAspectRatio: MediaQuery.of(context).size.aspectRatio,
                   crossAxisCount: 3,
                   crossAxisSpacing: 8,
@@ -51,30 +56,31 @@ class MultiFieldState extends State<MultiField> {
                   children: [...widget.fields],
                 ),
               )),
-      Visibility(
-          visible: widget.editable,
-          child: Column(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.add_circle),
-                onPressed: () {
-                  setState(() {
-                    widget.fields.add(widget.field);
-                  });
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.remove_circle),
-                onPressed: () {
-                  setState(() {
-                    if (widget.fields.isNotEmpty) {
-                      widget.fields.removeLast();
-                    }
-                  });
-                },
-              ),
-            ],
-          ))
-    ]);
+          Visibility(
+              visible: widget.editable,
+              child: Column(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.add_circle),
+                    onPressed: () {
+                      setState(() {
+                        widget.fields
+                            .add(widget.field(onSubmit: widget.onSubmit));
+                      });
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle),
+                    onPressed: () {
+                      setState(() {
+                        if (widget.fields.isNotEmpty) {
+                          widget.fields.removeLast();
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ))
+        ]);
   }
 }

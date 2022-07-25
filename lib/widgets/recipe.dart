@@ -12,6 +12,7 @@ class Recipe extends StatefulWidget {
   const Recipe(
       {Key? key,
       this.editable = false,
+      required this.chef,
       this.id,
       required formKey,
       required this.email})
@@ -19,6 +20,7 @@ class Recipe extends StatefulWidget {
         super(key: key);
 
   final bool editable;
+  final bool chef;
   final GlobalKey<FormState> _formKey;
   final String email;
   final int? id;
@@ -57,9 +59,9 @@ class RecipeState extends State<Recipe> {
     // fill recipe fields
     Results recipes = await db.query(
         'SELECT RecipeName, Name, Instructions, AVG(Rating) '
-        'FROM RECIPE NATURAL JOIN USER JOIN REVIEW '
-        'ON RECIPE.RecipeID = REVIEW.RecipeID'
-        'WHERE RecipeID = ?',
+        'FROM RECIPE NATURAL JOIN USER LEFT OUTER JOIN REVIEW '
+        'ON RECIPE.RecipeID = REVIEW.RecipeID '
+        'WHERE RECIPE.RecipeID = ?',
         [widget.id]);
     for (var recipe in recipes) {
       _name = recipe[0];
@@ -86,6 +88,7 @@ class RecipeState extends State<Recipe> {
     for (var dbCuisine in dbCuisines) {
       _cuisines.add(viewCuisineField(dbCuisine[0]));
     }
+    setState(() {});
   }
 
   Future<bool> _save() async {
@@ -102,12 +105,14 @@ class RecipeState extends State<Recipe> {
       await db.queryMulti(
           'INSERT INTO DIET_TAG (RecipeID, DietTag) VALUES (?, ?)',
           _dietTags.map<List>((tag) => [id, tag.controller!.text]).toList());
+
       await db.queryMulti(
           'INSERT INTO CUISINE (RecipeID, Cuisine) VALUES (?, ?)',
           _cuisines
               .map<List>((cuisine) => [id, cuisine.controller!.text])
               .toList());
       _productTable.addToDB(id);
+      _recipeProducts.clear();
 
       widget._formKey.currentState?.reset();
 
@@ -133,7 +138,9 @@ class RecipeState extends State<Recipe> {
                   visible: !widget.editable,
                   child: InkWell(
                       child: Text(
-                        'Avg Rating: $_rating/5.0',
+                        _rating != null
+                            ? 'Avg Rating: $_rating/5.0'
+                            : 'No Ratings',
                         style: const TextStyle(color: Colors.blue),
                       ),
                       onTap: () => Navigator.of(context).push(
@@ -141,7 +148,7 @@ class RecipeState extends State<Recipe> {
                               builder: (context) => ReviewTable(
                                 recipeName: _name,
                                 recipeID: widget.id!,
-                                chef: widget.editable,
+                                chef: widget.chef,
                                 email: widget.email,
                               ),
                             ),
@@ -151,7 +158,7 @@ class RecipeState extends State<Recipe> {
                 child: TextFormField(
                   decoration: InputDecoration(
                       labelText: widget.editable ? 'Name' : 'Author'),
-                  initialValue: _author,
+                  controller: TextEditingController(text: _author),
                   textInputAction: TextInputAction.next,
                   validator: nullValidator,
                   enabled: widget.editable,
@@ -175,11 +182,11 @@ class RecipeState extends State<Recipe> {
                             MultiField(
                                 fields: _dietTags,
                                 field: dietTagField,
-                                editable: false),
+                                editable: widget.editable),
                             MultiField(
                                 fields: _cuisines,
                                 field: cuisineField,
-                                editable: false),
+                                editable: widget.editable),
                           ],
                         ),
                         Container(
@@ -201,8 +208,10 @@ class RecipeState extends State<Recipe> {
                                 borderSide: BorderSide(),
                               ),
                             ),
+                            enabled: widget.editable,
                             maxLines: null,
-                            initialValue: _instructions,
+                            controller:
+                                TextEditingController(text: _instructions),
                             textAlignVertical: TextAlignVertical.top,
                             onSaved: (instr) => _instructions = instr,
                             textInputAction: TextInputAction.next,

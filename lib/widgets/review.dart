@@ -23,7 +23,7 @@ class ReviewTable extends StatefulWidget {
 }
 
 class ReviewTableState extends State<ReviewTable> {
-  late List<Map<String, dynamic>> _reviews;
+  late List<Map<String, dynamic>> _reviews = [];
   final _reviewKey = GlobalKey<FormState>();
 
   @override
@@ -35,11 +35,12 @@ class ReviewTableState extends State<ReviewTable> {
   void _parseReviewsFromRecipeID() async {
     _reviews = dbResultToMap(
         await db.query(
-            'SELECT ReviewID, Name, Rating, ReviewComment, '
+            'SELECT ReviewID, Name, Rating, ReviewComment '
             'FROM USER NATURAL JOIN REVIEW '
             'WHERE RecipeID = ?',
             [widget.recipeID]),
         ['ReviewID', 'User', 'Rating', 'Comment']);
+    setState(() {});
   }
 
   @override
@@ -58,51 +59,57 @@ class ReviewTableState extends State<ReviewTable> {
         child: ConstrainedBox(
           constraints:
               BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .3),
-          child: DataTable(
-            showCheckboxColumn: false,
-            sortAscending: true,
-            sortColumnIndex: 0,
-            // border: TableBorder.all(),
-            columns: const [
-              DataColumn(
-                  label: Center(
-                    child: Text(
-                      'ID',
-                      textAlign: TextAlign.center,
+          child: SingleChildScrollView(
+            child: DataTable(
+              showCheckboxColumn: false,
+              sortAscending: true,
+              sortColumnIndex: 0,
+              // border: TableBorder.all(),
+              columns: const [
+                DataColumn(
+                    label: Center(
+                      child: Text(
+                        'ID',
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                  numeric: true),
-              DataColumn(
-                label: Center(
+                    numeric: true),
+                DataColumn(
+                  label: Center(
+                      child: Text(
+                    'User',
+                    textAlign: TextAlign.center,
+                  )),
+                ),
+                DataColumn(
+                  label: Center(
+                      child: Text(
+                    'Rating',
+                    textAlign: TextAlign.center,
+                  )),
+                  numeric: true,
+                ),
+                DataColumn(
+                  label: Center(
+                      child: FittedBox(
+                    fit: BoxFit.scaleDown,
                     child: Text(
-                  'User',
-                  textAlign: TextAlign.center,
-                )),
-              ),
-              DataColumn(
-                label: Center(
-                    child: Text(
-                  'Rating',
-                  textAlign: TextAlign.center,
-                )),
-                numeric: true,
-              ),
-              DataColumn(
-                label: Center(
-                    child: Text(
-                  'Comment',
-                  textAlign: TextAlign.center,
-                )),
-              ),
-            ],
-            rows: _reviews
-                .map<DataRow>((review) => DataRow(cells: [
-                      DataCell(Text('${review['RecipeID']}')),
-                      DataCell(Text('${review['User']}')),
-                      DataCell(Text('${review['Rating']}')),
-                      DataCell(Text('${review['Comment'] ?? ''}'))
-                    ]))
-                .toList(),
+                      'Comment',
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.fade,
+                    ),
+                  )),
+                ),
+              ],
+              rows: _reviews
+                  .map<DataRow>((review) => DataRow(cells: [
+                        DataCell(Text('${review['ReviewID']}')),
+                        DataCell(Text('${review['User']}')),
+                        DataCell(Text('${review['Rating']}')),
+                        DataCell(Text('${review['Comment'] ?? ''}'))
+                      ]))
+                  .toList(),
+            ),
           ),
         ),
       ),
@@ -111,12 +118,15 @@ class ReviewTableState extends State<ReviewTable> {
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: ElevatedButton(
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => ReviewPage(
-                    formKey: _reviewKey,
-                        recipeID: widget.recipeID,
-                        email: widget.email,
-                      ))),
+              onPressed: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => ReviewPage(
+                          formKey: _reviewKey,
+                          recipeID: widget.recipeID,
+                          email: widget.email,
+                        )));
+                setState(() {});
+              },
               child: const Text('Write Review')),
         ),
       ),

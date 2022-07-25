@@ -97,7 +97,9 @@ class _OverviewPageState extends State<OverviewPage>
                 email: widget.email,
                 chef: _chef.value,
               ),
-              child: const GroceryRunTable(),
+              child: GroceryRunTable(
+                email: widget.email,
+              ),
             );
           }),
       ValueListenableBuilder(
@@ -127,32 +129,38 @@ class _OverviewPageState extends State<OverviewPage>
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<bool?>>(
-      future: Future.wait<bool?>([_setAvgRatingFuture, _showDialogFuture]),
-      builder: (context, snapshot) => snapshot.connectionState ==
-              ConnectionState.done
-          ? Scaffold(
+        future: Future.wait<bool?>([_setAvgRatingFuture, _showDialogFuture]),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            _chef.value = snapshot.data![1]!;
+            return Scaffold(
               appBar: AppBar(
                 leading: const BackButton(),
-                title: Text.rich(
-                  TextSpan(
-                      text: '${_chef.value ? 'Chef' : 'Contributor'} Home\n',
-                      children: [
-                        TextSpan(
-                            text: _avgRating > 0
-                                ? 'Avg Rating: $_avgRating/5.0'
-                                : 'No ratings',
-                            style: const TextStyle(
-                                fontStyle: FontStyle.italic, fontSize: 14))
-                      ]),
-                  textAlign: TextAlign.center,
+                title: ValueListenableBuilder(
+                  valueListenable: _chef,
+                  builder: (context, bool newChef, child) => Text.rich(
+                    TextSpan(
+                        text: '${newChef ? 'Chef' : 'Contributor'} Home\n',
+                        children: !newChef
+                            ? [
+                                TextSpan(
+                                    text: (_avgRating > 0
+                                        ? 'Avg Rating: $_avgRating/5.0'
+                                        : 'No ratings'),
+                                    style: const TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                        fontSize: 14))
+                              ]
+                            : null),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
                 centerTitle: true,
                 actions: [
                   IconButton(
                       onPressed: () {
-                        setState(() {
-                          _chef.value = !_chef.value;
-                        });
+                        _chef.value = !_chef.value;
+
                         _tabKeys[_tabController!.index]
                             .currentState!
                             .popUntil((route) => route.isFirst);
@@ -171,14 +179,19 @@ class _OverviewPageState extends State<OverviewPage>
                   controller: _tabController,
                   tabs: [
                     Tab(
-                      child:
-                          Text(_chef.value ? 'Grocery Runs' : 'Write Recipe'),
+                      child: ValueListenableBuilder(
+                          valueListenable: _chef,
+                          builder: (context, bool newChef, child) =>
+                              Text(newChef ? 'Grocery Runs' : 'Write Recipe')),
                     ),
                     const Tab(
                       child: Text('Browse Recipes'),
                     ),
                     Tab(
-                      child: Text('My ${_chef.value ? 'Products' : 'Recipes'}'),
+                      child: ValueListenableBuilder(
+                          valueListenable: _chef,
+                          builder: (context, bool newChef, child) =>
+                              Text('My ${newChef ? 'Products' : 'Recipes'}')),
                     )
                   ],
                 ),
@@ -208,15 +221,17 @@ class _OverviewPageState extends State<OverviewPage>
 
                     return view;
                   }).toList()),
-            )
-          : Scaffold(
-              body: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                      width: 100,
-                      height: 100,
-                      padding: const EdgeInsets.all(16),
-                      child: const CircularProgressIndicator()))),
-    );
+            );
+          } else {
+            return Scaffold(
+                body: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                        width: 100,
+                        height: 100,
+                        padding: const EdgeInsets.all(16),
+                        child: const CircularProgressIndicator())));
+          }
+        });
   }
 }

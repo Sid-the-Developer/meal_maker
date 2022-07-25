@@ -1,86 +1,238 @@
 import 'package:flutter/material.dart';
 import 'package:meal_planner/globals.dart';
 
+import '../meal.dart';
+
 class GroceryRunTable extends StatefulWidget {
-  const GroceryRunTable({Key? key}) : super(key: key);
+  const GroceryRunTable({Key? key, required this.email}) : super(key: key);
+  final String email;
 
   @override
   State<StatefulWidget> createState() => GroceryRunTableState();
 }
 
 class GroceryRunTableState extends State<GroceryRunTable> {
-  List<GroceryRun> _groceryRuns = [];
+  List<Map<String, dynamic>> _groceryRuns = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _parseRunsFromEmail();
+  }
+
+  void _parseRunsFromEmail() async {
+    _groceryRuns = dbResultToMap(
+        await db.query(
+            'SELECT GroceryID, Date FROM GROCERY_RUN WHERE Email = ?',
+            [widget.email]),
+        ['ID', 'Date']);
+    for (var run in _groceryRuns) {
+      run['Date'] = formatter.format(run['Date']);
+    }
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(8.0),
-          child: Text(
-            'Grocery Runs',
-            style: TextStyle(fontSize: 25),
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'Grocery Runs',
+              style: TextStyle(fontSize: 25),
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: DataTable(
-              columns: const [
-                DataColumn(
-                    label: Center(
-                        child: Text(
-                  'ID',
-                  textAlign: TextAlign.center,
-                ))),
-                DataColumn(
-                    label: Center(
-                        child: Text(
-                  'Date',
-                  textAlign: TextAlign.center,
-                )))
-              ],
-              rows: _groceryRuns
-                  .map((run) => DataRow(cells: [
-                        DataCell(
-                          Text('${run.groceryID}'),
-                        ),
-                        DataCell(Text('${run.date}'))
-                      ]))
-                  .toList()),
-        ),
-        Padding(
-          padding: EdgeInsets.all(16),
-          child: ElevatedButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => GroceryRun(
-                      date: DateTime.now(),
-                      groceryID: _groceryRuns.length + 1,
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: SingleChildScrollView(
+              child: DataTable(
+                  showCheckboxColumn: false,
+                  columns: const [
+                    DataColumn(
+                        label: Center(
+                            child: Text(
+                      'ID',
+                      textAlign: TextAlign.center,
                     ))),
-            //TODO sql insert
-            child: const Text('New Run'),
+                    DataColumn(
+                        label: Center(
+                            child: Text(
+                      'Date',
+                      textAlign: TextAlign.center,
+                    ))),
+                    DataColumn(
+                        label: Center(
+                            child: Text(
+                      '',
+                      textAlign: TextAlign.center,
+                    )))
+                  ],
+                  rows: _groceryRuns
+                      .map((run) => DataRow(
+                              cells: [
+                                DataCell(
+                                  Text('${run['ID']}'),
+                                ),
+                                DataCell(Text('${run['Date']}')),
+                                DataCell(Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.remove_circle),
+                                    onPressed: () async {
+                                      await db.query(
+                                          'DELETE FROM GROCERY_RUN WHERE GroceryID = ?',
+                                          [
+                                            run['ID']
+                                          ]).then(
+                                          (value) => _parseRunsFromEmail());
+                                    },
+                                  ),
+                                ))
+                              ],
+                              onSelectChanged: (selected) {
+                                if (selected ?? false) {
+                                  Navigator.of(context)
+                                      .push(MaterialPageRoute(
+                                          builder: (context) => GroceryRun(
+                                                date: formatter
+                                                    .parseStrict(run['Date']),
+                                                groceryID: run['ID'],
+                                                email: widget.email,
+                                              )))
+                                      .then((value) => _parseRunsFromEmail());
+                                }
+                              }))
+                      .toList()),
+            ),
           ),
-        )
-      ],
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton(
+              onPressed: () async {
+                int newID = (await db.query(
+                        'INSERT INTO GROCERY_RUN (Email, Date) VALUES (?, ?)',
+                        [widget.email, formatter.format(DateTime.now())]))
+                    .insertId!;
+                if (mounted) {
+                  Navigator.of(context)
+                      .push(MaterialPageRoute(
+                          builder: (context) => GroceryRun(
+                                date: DateTime.now(),
+                                groceryID: newID,
+                                email: widget.email,
+                              )))
+                      .then((value) => _parseRunsFromEmail());
+                }
+              },
+              child: const Text('New Run'),
+            ),
+          )
+        ],
+      ),
     );
   }
 }
 
 class GroceryRun extends StatefulWidget {
-  const GroceryRun({Key? key, required this.date, required this.groceryID})
+  const GroceryRun(
+      {Key? key,
+      required this.date,
+      required this.groceryID,
+      required this.email})
       : super(key: key);
   final DateTime date;
   final int groceryID;
+  final String email;
 
   @override
   State<StatefulWidget> createState() => GroceryRunState();
 }
 
 class GroceryRunState extends State<GroceryRun> {
-  List<String> _checklist = []; //TODO implement sql
-  List<String> _meals = [];
-  String? _newMeal;
+  List<Meal> _checklist = [];
+  List<Meal> _allMeals = [];
+  List<Meal> _runMeals = [];
+  late final List<bool> _selectedRows =
+      _checklist.map<bool>((meal) => meal.mealMap['Amount'] <= 0).toList();
+  Meal? _newMeal;
   final GlobalKey<FormFieldState> _dropdownKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _buildChecklistFromID();
+  }
+
+  void _buildChecklistFromID() async {
+    _allMeals = dbResultToMap(
+        await db.query(
+            'SELECT RECIPE.RecipeID, RecipeName, MEAL.Email, PrepareDate '
+            'FROM MEAL JOIN RECIPE ON MEAL.RecipeID = RECIPE.RecipeID AND MEAL.Email = ?',
+            [widget.email]),
+        [
+          'RecipeID',
+          'RecipeName',
+          'Email',
+          'PrepareDate'
+        ]).map((e) => Meal(e)).toList();
+    for (var run in _allMeals) {
+      run.mealMap['PrepareDate'] = formatter.format(run.mealMap['PrepareDate']);
+    }
+
+    _runMeals = dbResultToMap(
+        await db.query(
+            'SELECT RECIPE.RecipeID, RecipeName, MEAL.Email, PrepareDate, GroceryID '
+            'FROM MEAL NATURAL JOIN SOURCES NATURAL JOIN GROCERY_RUN '
+            'JOIN RECIPE ON RECIPE.RecipeID = MEAL.RecipeID '
+            'WHERE GroceryID = ?',
+            [widget.groceryID]),
+        [
+          'RecipeID',
+          'RecipeName',
+          'Email',
+          'PrepareDate',
+          'GroceryID'
+        ]).map((e) => Meal(e)).toList();
+    for (var run in _runMeals) {
+      run.mealMap['PrepareDate'] = formatter.format(run.mealMap['PrepareDate']);
+    }
+
+    List<int> recipeIDs =
+        _runMeals.map<int>((e) => e.mealMap['RecipeID']).toList();
+
+    if (recipeIDs.isNotEmpty) {
+      _checklist = dbResultToMap(
+          await db.query(
+              'SELECT ProductName, Amount, SUM(Amount) '
+              'FROM USES WHERE RecipeID IN (${recipeIDs.map((e) => '?').join(', ')}) '
+              'GROUP BY ProductName',
+              [...recipeIDs]),
+          ['Name', 'RecipeAmount', 'TotalAmount']).map((e) => Meal(e)).toList();
+    } else {
+      _checklist = [];
+    }
+
+    Map<String, int> ownedAmounts = {
+      // LEFT OUTER JOIN so that a not owned product will return null
+      for (var product in await db.query(
+          'SELECT PRODUCT.ProductName, Amount FROM PRODUCT NATURAL LEFT OUTER JOIN '
+          '(SELECT * FROM OWNS WHERE Email = ?) AS TEMP',
+          [widget.email]))
+        product[0]: product[1] ?? 0
+    };
+
+    for (var product in _checklist) {
+      product.mealMap['OwnedAmount'] =
+          ownedAmounts[product.mealMap['Name']] ?? 0;
+      product.mealMap['Amount'] =
+          (product.mealMap['TotalAmount'] - product.mealMap['OwnedAmount']);
+    }
+
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,53 +250,96 @@ class GroceryRunState extends State<GroceryRun> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              children: [
-                const Text(
-                  'Product Checklist',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * .3),
-                  child: DataTable(
-                      showCheckboxColumn: true,
-                      columns: const [
-                        DataColumn(
-                            label: Center(
-                                child: Text(
-                          'Name',
-                          textAlign: TextAlign.center,
-                        ))),
-                        DataColumn(
-                            label: Center(
-                                child: Text(
-                          'Amount',
-                          textAlign: TextAlign.center,
-                        )))
-                      ],
-                      rows: _checklist
-                          .map((run) => DataRow(
-                                  onSelectChanged: (selected) {
-                                    if (selected != null) {
-                                      if (selected) {
-                                        // add to db
-                                        setState(() => _checklist.add('run'));
-                                      } else if (!selected) {
-                                        // remove from db
-                                        setState(() {
-                                          _checklist.remove(run);
-                                        });
-                                      }
-                                    }
-                                  },
-                                  cells: [
-                                    DataCell(Text('_checklist[0] 1st value')),
-                                    DataCell(Text('_checklist[0] second value'))
-                                  ]))
-                          .toList()),
-                ),
-              ],
+            SingleChildScrollView(
+              child: Column(
+                children: [
+                  const Text(
+                    'Product Checklist',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                        maxWidth: MediaQuery.of(context).size.width * .3,
+                        maxHeight: MediaQuery.of(context).size.height * .5),
+                    child: SingleChildScrollView(
+                      child: DataTable(
+                          columns: const [
+                            DataColumn(
+                                label: Center(
+                                    child: Text(
+                              'Name',
+                              textAlign: TextAlign.center,
+                            ))),
+                            DataColumn(
+                                label: Center(
+                                    child: Text(
+                              'Amount',
+                              textAlign: TextAlign.center,
+                            )))
+                          ],
+                          rows: List.generate(
+                              _checklist.length,
+                              (i) => DataRow(
+                                      selected: _selectedRows[i],
+                                      onSelectChanged: (selected) async {
+                                        if (selected != null) {
+                                          setState(() {
+                                            _selectedRows[i] = selected;
+                                          });
+                                          if (selected &&
+                                              _checklist[i].mealMap['Amount'] >
+                                                  0) {
+                                            // add to db
+                                            await db.query(
+                                                'INSERT INTO OBTAINS (GroceryID, Price, ProductName, Amount) '
+                                                'VALUES (?, ?, ?, ?)',
+                                                [
+                                                  widget.groceryID,
+                                                  0,
+                                                  _checklist[i].mealMap['Name'],
+                                                  _checklist[i]
+                                                      .mealMap['Amount']
+                                                ]);
+                                            await db.query(
+                                                'UPDATE OWNS SET Amount = ? '
+                                                'WHERE ProductName = ? AND Email = ?',
+                                                [
+                                                  _checklist[i]
+                                                      .mealMap['TotalAmount'],
+                                                  _checklist[i].mealMap['Name'],
+                                                  widget.email
+                                                ]);
+                                          } else if (!selected) {
+                                            // remove from db
+                                            await db.query(
+                                                'DELETE FROM OBTAINS WHERE GroceryID = ? AND ProductName = ?',
+                                                [
+                                                  widget.groceryID,
+                                                  _checklist[i].mealMap['Name'],
+                                                ]);
+                                            await db.query(
+                                                'UPDATE OWNS SET Amount = ? '
+                                                'WHERE ProductName = ? AND Email = ?',
+                                                [
+                                                  _checklist[i]
+                                                      .mealMap['OwnedAmount'],
+                                                  _checklist[i].mealMap['Name'],
+                                                  widget.email
+                                                ]);
+                                          }
+                                          _buildChecklistFromID();
+                                        }
+                                      },
+                                      cells: [
+                                        DataCell(Text(
+                                            '${_checklist[i].mealMap['Name']}')),
+                                        DataCell(Text(
+                                            '${(_checklist[i].mealMap['Amount'] ?? 0) > 0 ? _checklist[i].mealMap['Amount'] : _checklist[i].mealMap['TotalAmount']}'))
+                                      ]))),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Column(
               children: [
@@ -154,9 +349,9 @@ class GroceryRunState extends State<GroceryRun> {
                 ),
                 ConstrainedBox(
                   constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * .3),
+                      maxWidth: MediaQuery.of(context).size.width),
                   child: DataTable(
-                      showCheckboxColumn: true,
+                      showCheckboxColumn: false,
                       columns: const [
                         DataColumn(
                             label: Center(
@@ -167,44 +362,84 @@ class GroceryRunState extends State<GroceryRun> {
                         DataColumn(
                             label: Center(
                                 child: Text(
-                          'Amount',
+                          'Date Planned',
+                          textAlign: TextAlign.center,
+                        ))),
+                        DataColumn(
+                            label: Center(
+                                child: Text(
+                          '',
                           textAlign: TextAlign.center,
                         )))
                       ],
-                      rows: _checklist
+                      rows: _runMeals
                           .map((run) => DataRow(cells: [
-                                DataCell(Text('_checklist[0] 1')),
-                                DataCell(Text('_checklist[0] 2'))
+                                DataCell(Text('${run.mealMap['RecipeName']}')),
+                                DataCell(Text('${run.mealMap['PrepareDate']}')),
+                                DataCell(Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.remove_circle),
+                                    onPressed: () async {
+                                      await db.query(
+                                          'DELETE FROM SOURCES WHERE GroceryID = ? '
+                                          'AND RecipeID = ? AND Email = ? AND PrepareDate = ?',
+                                          [
+                                            widget.groceryID,
+                                            run.mealMap['RecipeID'],
+                                            run.mealMap['Email'],
+                                            run.mealMap['PrepareDate']
+                                          ]);
+                                      _newMeal = null;
+                                      _buildChecklistFromID();
+                                    },
+                                  ),
+                                ))
                               ]))
                           .toList()),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-                      width: 200,
-                      child: DropdownButtonFormField<String>(
-                        key: _dropdownKey,
-                        value: _newMeal,
-                        validator: nullValidator,
-                        items: _meals
-                            .map((meal) => DropdownMenuItem<String>(
+                    Flexible(
+                      child: Container(
+                        constraints:
+                            const BoxConstraints(minWidth: 200, maxWidth: 400),
+                        margin: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                        child: DropdownButtonFormField<Meal>(
+                          key: _dropdownKey,
+                          value: _newMeal,
+                          validator: (meal) =>
+                              nullValidator(meal?.mealMap['RecipeName']),
+                          items: _allMeals
+                              .map((meal) => DropdownMenuItem<Meal>(
                                   value: meal,
-                                  child: Text('$meal at "a date"'),
-                                ))
-                            .toList(),
-                        onChanged: (value) => _newMeal = value,
+                                  child: Text(
+                                    '${meal.mealMap['RecipeName']} on ${meal.mealMap['PrepareDate']}',
+                                    overflow: TextOverflow.fade,
+                                  )))
+                              .toList(),
+                          onChanged: (value) => _newMeal = value,
+                        ),
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8),
                       child: IconButton(
                         icon: const Icon(Icons.add_circle),
-                        onPressed: () {
+                        onPressed: () async {
                           if (_dropdownKey.currentState?.validate() ?? false) {
-                            setState(() {
-                              _meals.add(_newMeal!);
-                              _newMeal = null;
+                            await db.query(
+                                'INSERT INTO SOURCES VALUES (?, ?, ?, ?)', [
+                              widget.groceryID,
+                              _newMeal!.mealMap['RecipeID'],
+                              _newMeal!.mealMap['Email'],
+                              _newMeal!.mealMap['PrepareDate']
+                            ]).then((value) {
+                              setState(() {
+                                _newMeal = null;
+                              });
+                              _buildChecklistFromID();
                             });
                           }
                         },

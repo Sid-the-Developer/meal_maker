@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:meal_planner/widgets/product.dart';
 import 'package:mysql1/mysql1.dart';
 
@@ -6,6 +7,7 @@ import 'package:mysql1/mysql1.dart';
 
 // initialize product list
 List<String> allProducts = [];
+DateFormat formatter = DateFormat('yyyy-MM-dd');
 
 getProducts() async {
   allProducts = List<String>.of((await db.query('SELECT ProductName '
@@ -85,6 +87,7 @@ Future<bool?> addProduct(BuildContext context) async => await showDialog<bool>(
 // mysql package variables
 late ConnectionSettings settings;
 late MySqlConnection db;
+
 // allows for use of column names instead of indices to reference values
 List<Map<String, dynamic>> dbResultToMap(
     Results results, List<String> columns) {

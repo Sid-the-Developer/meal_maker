@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:meal_planner/widgets/center_form.dart';
 import 'package:meal_planner/widgets/recipe.dart';
-import 'package:intl/intl.dart';
 
 import '../globals.dart';
 import '../widgets/multifield.dart';
@@ -137,11 +136,11 @@ class BrowseRecipesState extends State<BrowseRecipes> {
     return filtered;
   }
 
-  _save(int id) async {
+  void _save(int id) async {
     if (_mealKey.currentState?.validate() ?? false) {
       _mealKey.currentState?.save();
       await db.query('INSERT INTO MEAL VALUES (?, ?, ?)',
-          [id, widget.email, DateFormat('yyyy-MM-dd').format(_date!)]);
+          [id, widget.email, formatter.format(_date!)]);
       if (mounted) Navigator.of(context).pop();
     }
   }
@@ -186,7 +185,7 @@ class BrowseRecipesState extends State<BrowseRecipes> {
             child: InputDatePickerFormField(
               initialDate: DateTime.now(),
               lastDate: DateTime(DateTime.now().year + 100),
-              errorInvalidText: 'Invalid date: must be in the future',
+              errorInvalidText: 'Invalid date',
               errorFormatText: 'Must be in date format',
               firstDate: DateTime.now(),
               onDateSubmitted: (_) => _save(id),
@@ -200,7 +199,7 @@ class BrowseRecipesState extends State<BrowseRecipes> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
               child: ElevatedButton(
-                  onPressed: _save(id), child: const Text('Save')),
+                  onPressed: () => _save(id), child: const Text('Save')),
             ),
           ),
         ]);
@@ -208,151 +207,154 @@ class BrowseRecipesState extends State<BrowseRecipes> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(8.0),
-          child: Text(
-            'Browse Recipes',
-            style: TextStyle(fontSize: 25),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            children: [
-              const Text(
-                'Filters',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              MultiField(
-                fields: _dietTags,
-                field: dietTagField,
-                onSubmit: (_) => setState(() {
-                  _filteredList = _filter();
-                }),
-                editable: true,
-              ),
-              MultiField(
-                fields: _cuisines,
-                field: cuisineField,
-                onSubmit: (_) => setState(() {
-                  _filteredList = _filter();
-                }),
-                editable: true,
-              ),
-            ],
-          ),
-        ),
-        ConstrainedBox(
-          constraints:
-              BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .75),
-          child: SingleChildScrollView(
-            child: DataTable(
-              showCheckboxColumn: false,
-              sortAscending: _sortAsc,
-              sortColumnIndex: _sortIndex,
-              // border: TableBorder.all(),
-              columns: [
-                const DataColumn(
-                    label: Center(
-                      child: Text(
-                        'ID',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    numeric: true),
-                const DataColumn(
-                  label: Center(
-                      child: Text(
-                    'Name',
-                    textAlign: TextAlign.center,
-                  )),
-                ),
-                const DataColumn(
-                    label: Center(
-                      child: Text(
-                        'Author',
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    numeric: true),
-                const DataColumn(
-                  label: Center(
-                    child: Text(
-                      'Cuisines',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-                const DataColumn(
-                  label: Center(
-                    child: Text(
-                      'Diet Tags',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-                DataColumn(
-                    label: const Center(
-                        child: Text(
-                      'Avg Rating',
-                      textAlign: TextAlign.center,
-                    )),
-                    numeric: true,
-                    onSort: (index, asc) {
-                      setState(() {
-                        _sortAsc = asc;
-                        _sortIndex = index;
-                        _getRecipes();
-                      });
-                    }),
-                DataColumn(
-                    label: const Center(
-                        child: Text(
-                      '% Owned',
-                      textAlign: TextAlign.center,
-                    )),
-                    numeric: true,
-                    onSort: (index, asc) {
-                      setState(() {
-                        _sortAsc = asc;
-                        _sortIndex = index;
-                        _getRecipes();
-                      });
-                    }),
-              ],
-              rows: _filteredList
-                  .map<DataRow>((recipe) => DataRow(
-                          cells: [
-                            DataCell(Text('${recipe['RecipeID']}')),
-                            DataCell(Text(recipe['Name'])),
-                            DataCell(Text(recipe['Author'])),
-                            DataCell(Text(_recipeCuisines[recipe['RecipeID']]
-                                    ?.join(', ') ??
-                                '')),
-                            DataCell(Text(_recipeDietTags[recipe['RecipeID']]
-                                    ?.join(', ') ??
-                                '')),
-                            DataCell(
-                                Text('${recipe['Rating'] ?? 'No Ratings'}')),
-                            DataCell(Text(
-                                recipe['% Owned']?.toStringAsFixed(2) ?? 'N/A'))
-                          ],
-                          onSelectChanged: (selected) {
-                            if (selected ?? false) {
-                              Navigator.of(context).push(MaterialPageRoute(
-                                  builder: (context) =>
-                                      _buildRecipeView(recipe['RecipeID'])));
-                            }
-                          }))
-                  .toList(),
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'Browse Recipes',
+              style: TextStyle(fontSize: 25),
             ),
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              children: [
+                const Text(
+                  'Filters',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                MultiField(
+                  fields: _dietTags,
+                  field: dietTagField,
+                  onSubmit: (_) => setState(() {
+                    _filteredList = _filter();
+                  }),
+                  editable: true,
+                ),
+                MultiField(
+                  fields: _cuisines,
+                  field: cuisineField,
+                  onSubmit: (_) => setState(() {
+                    _filteredList = _filter();
+                  }),
+                  editable: true,
+                ),
+              ],
+            ),
+          ),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * .75),
+            child: SingleChildScrollView(
+              child: DataTable(
+                showCheckboxColumn: false,
+                sortAscending: _sortAsc,
+                sortColumnIndex: _sortIndex,
+                // border: TableBorder.all(),
+                columns: [
+                  const DataColumn(
+                      label: Center(
+                        child: Text(
+                          'ID',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      numeric: true),
+                  const DataColumn(
+                    label: Center(
+                        child: Text(
+                      'Name',
+                      textAlign: TextAlign.center,
+                    )),
+                  ),
+                  const DataColumn(
+                      label: Center(
+                        child: Text(
+                          'Author',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      numeric: true),
+                  const DataColumn(
+                    label: Center(
+                      child: Text(
+                        'Cuisines',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  const DataColumn(
+                    label: Center(
+                      child: Text(
+                        'Diet Tags',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                      label: const Center(
+                          child: Text(
+                        'Avg Rating',
+                        textAlign: TextAlign.center,
+                      )),
+                      numeric: true,
+                      onSort: (index, asc) {
+                        setState(() {
+                          _sortAsc = asc;
+                          _sortIndex = index;
+                          _getRecipes();
+                        });
+                      }),
+                  DataColumn(
+                      label: const Center(
+                          child: Text(
+                        '% Owned',
+                        textAlign: TextAlign.center,
+                      )),
+                      numeric: true,
+                      onSort: (index, asc) {
+                        setState(() {
+                          _sortAsc = asc;
+                          _sortIndex = index;
+                          _getRecipes();
+                        });
+                      }),
+                ],
+                rows: _filteredList
+                    .map<DataRow>((recipe) => DataRow(
+                            cells: [
+                              DataCell(Text('${recipe['RecipeID']}')),
+                              DataCell(Text(recipe['Name'])),
+                              DataCell(Text(recipe['Author'])),
+                              DataCell(Text(_recipeCuisines[recipe['RecipeID']]
+                                      ?.join(', ') ??
+                                  '')),
+                              DataCell(Text(_recipeDietTags[recipe['RecipeID']]
+                                      ?.join(', ') ??
+                                  '')),
+                              DataCell(
+                                  Text('${recipe['Rating'] ?? 'No Ratings'}')),
+                              DataCell(Text(
+                                  recipe['% Owned']?.toStringAsFixed(2) ??
+                                      'N/A'))
+                            ],
+                            onSelectChanged: (selected) {
+                              if (selected ?? false) {
+                                Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (context) =>
+                                        _buildRecipeView(recipe['RecipeID'])));
+                              }
+                            }))
+                    .toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

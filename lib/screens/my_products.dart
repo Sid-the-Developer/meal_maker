@@ -93,158 +93,177 @@ class MyProductsPageState extends State<MyProductsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      const Padding(
-        padding: EdgeInsets.all(8.0),
-        child: Text(
-          'Products',
-          style: TextStyle(fontSize: 25),
+    return SingleChildScrollView(
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Padding(
+          padding: EdgeInsets.all(8.0),
+          child: Text(
+            'Products',
+            style: TextStyle(fontSize: 25),
+          ),
         ),
-      ),
-      Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Filters',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            MultiField(
-              fields: _types,
-              field: typeField,
-              onSubmit: (type) {
-                setState(() {
-                  _filteredList = _filter();
-                });
-              },
-              editable: true,
-            ),
-            Container(
-              width: 200,
-              margin: const EdgeInsets.only(left: 16),
-              child: TextFormField(
-                  decoration:
-                      const InputDecoration(labelText: 'Search by name'),
-                  onFieldSubmitted: (value) {
-                    _searchName = value;
-                    setState(() {
-                      _filteredList = _filter();
-                    });
-                  }),
-            )
-          ],
-        ),
-      ),
-      ConstrainedBox(
-          constraints:
-              BoxConstraints(maxWidth: MediaQuery.of(context).size.width * .5),
-          child: DataTable(
-            showCheckboxColumn: false,
-            // border: TableBorder.all(),
-            columns: const [
-              DataColumn(
-                  label: Center(
-                    child: Text(
-                      'Name',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  numeric: true),
-              DataColumn(
-                label: Center(
-                    child: Text(
-                  'Types',
-                  textAlign: TextAlign.center,
-                )),
-              ),
-              DataColumn(
-                  label: Center(
-                    child: Text(
-                      'Units',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  numeric: true),
-              DataColumn(
-                label: Center(
-                  child: Text(
-                    'Amount Owned',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-              DataColumn(
-                label: Center(
-                  child: Text(
-                    'Update Amount',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            ],
-            rows: _filteredList
-                .map<DataRow>(
-                  (product) => DataRow(
-                    cells: [
-                      DataCell(Text('${product['Name']}')),
-                      DataCell(Text(
-                          _ingredientTypes[product['Name']]?.join(', ') ??
-                              'N/A (${product['Type']})')),
-                      DataCell(Text('${product['Units'] ?? 'N/A'}')),
-                      DataCell(Text('${product['Amount']}')),
-                      DataCell(TextFormField(
-                        decoration: const InputDecoration.collapsed(
-                            hintText: 'Update Amount'),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
-                        ],
-                        onFieldSubmitted: (value) async {
-                          await db.query(
-                              'UPDATE OWNS '
-                              'SET Amount = ? '
-                              'WHERE ProductName = ? AND Email = ?',
-                              [value, product['Name'], widget.email]);
-                          _getProductsFromEmail();
-                        },
-                      )),
-                    ],
-                  ),
-                )
-                .toList(),
-          )),
-      Padding(
-          padding: const EdgeInsets.only(top: 16),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: SizedBox(
-                  width: 200,
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    value: _productDropdown,
-                    items: allProducts
-                        .map((product) => DropdownMenuItem<String>(
-                            value: product, child: Text(product)))
-                        .toList(),
-                    onChanged: (product) {
-                      setState(() => _productDropdown = product);
-                    },
-                    hint: const Text('New Product'),
+              const Text(
+                'Filters',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              MultiField(
+                fields: _types,
+                field: typeField,
+                onSubmit: (type) {
+                  setState(() {
+                    _filteredList = _filter();
+                  });
+                },
+                editable: true,
+              ),
+              Container(
+                width: 200,
+                margin: const EdgeInsets.only(left: 16),
+                child: TextFormField(
+                    decoration:
+                        const InputDecoration(labelText: 'Search by name'),
+                    onFieldSubmitted: (value) {
+                      _searchName = value;
+                      setState(() {
+                        _filteredList = _filter();
+                      });
+                    }),
+              )
+            ],
+          ),
+        ),
+        ConstrainedBox(
+            constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * .5),
+            child: DataTable(
+              showCheckboxColumn: false,
+              // border: TableBorder.all(),
+              columns: const [
+                DataColumn(
+                    label: Center(
+                      child: Text(
+                        'Name',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    numeric: true),
+                DataColumn(
+                  label: Center(
+                      child: Text(
+                    'Types',
+                    textAlign: TextAlign.center,
+                  )),
+                ),
+                DataColumn(
+                    label: Center(
+                      child: Text(
+                        'Units',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    numeric: true),
+                DataColumn(
+                  label: Center(
+                    child: Text(
+                      'Amount Owned',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: SizedBox(
-                  width: 100,
-                  child: TextFormField(
-                    key: _amountKey,
-                    decoration: const InputDecoration(hintText: 'Amount'),
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onFieldSubmitted: (amount) async {
+                DataColumn(
+                  label: Center(
+                    child: Text(
+                      'Update Amount',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ],
+              rows: _filteredList
+                  .map<DataRow>(
+                    (product) => DataRow(
+                      cells: [
+                        DataCell(Text('${product['Name']}')),
+                        DataCell(Text(
+                            _ingredientTypes[product['Name']]?.join(', ') ??
+                                'N/A (${product['Type']})')),
+                        DataCell(Text('${product['Units'] ?? 'N/A'}')),
+                        DataCell(Text('${product['Amount']}')),
+                        DataCell(TextFormField(
+                          decoration: const InputDecoration.collapsed(
+                              hintText: 'Update Amount'),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          onFieldSubmitted: (value) async {
+                            await db.query(
+                                'UPDATE OWNS '
+                                'SET Amount = ? '
+                                'WHERE ProductName = ? AND Email = ?',
+                                [value, product['Name'], widget.email]);
+                            _getProductsFromEmail();
+                          },
+                        )),
+                      ],
+                    ),
+                  )
+                  .toList(),
+            )),
+        Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    width: 200,
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: _productDropdown,
+                      items: allProducts
+                          .map((product) => DropdownMenuItem<String>(
+                              value: product, child: Text(product)))
+                          .toList(),
+                      onChanged: (product) {
+                        setState(() => _productDropdown = product);
+                      },
+                      hint: const Text('New Product'),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: SizedBox(
+                    width: 100,
+                    child: TextFormField(
+                      key: _amountKey,
+                      decoration: const InputDecoration(hintText: 'Amount'),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onFieldSubmitted: (amount) async {
+                        if (_productDropdown != null) {
+                          await db.query(
+                              'INSERT INTO OWNS (Email, ProductName, Amount) VALUES '
+                              '(?, ?, ?)',
+                              [widget.email, _productDropdown, _amount]);
+                          _getProductsFromEmail();
+                          _productDropdown = null;
+                          _amountKey.currentState?.reset();
+                        }
+                      },
+                      onChanged: (amount) {
+                        _amount = int.tryParse(amount) ?? 0;
+                      },
+                    ),
+                  ),
+                ),
+                IconButton(
+                    onPressed: () async {
                       if (_productDropdown != null) {
                         await db.query(
                             'INSERT INTO OWNS (Email, ProductName, Amount) VALUES '
@@ -255,27 +274,10 @@ class MyProductsPageState extends State<MyProductsPage> {
                         _amountKey.currentState?.reset();
                       }
                     },
-                    onChanged: (amount) {
-                      _amount = int.tryParse(amount) ?? 0;
-                    },
-                  ),
-                ),
-              ),
-              IconButton(
-                  onPressed: () async {
-                    if (_productDropdown != null) {
-                      await db.query(
-                          'INSERT INTO OWNS (Email, ProductName, Amount) VALUES '
-                          '(?, ?, ?)',
-                          [widget.email, _productDropdown, _amount]);
-                      _getProductsFromEmail();
-                      _productDropdown = null;
-                      _amountKey.currentState?.reset();
-                    }
-                  },
-                  icon: const Icon(Icons.add_circle)),
-            ],
-          )),
-    ]);
+                    icon: const Icon(Icons.add_circle)),
+              ],
+            )),
+      ]),
+    );
   }
 }

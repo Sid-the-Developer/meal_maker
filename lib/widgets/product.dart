@@ -37,12 +37,14 @@ class ProductTableState extends State<ProductTable> {
   String? _productDropdown;
   final GlobalKey<FormFieldState> _amountKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<List<String>> _productNotifier =
+      ValueNotifier(List.unmodifiable(allProducts));
 
   @override
   void initState() {
     super.initState();
     _parseProductsFromRecipes();
-    getProducts();
+    getProducts().then((value) => _productNotifier.value = [...allProducts]);
   }
 
   _parseProductsFromRecipes() async {
@@ -84,29 +86,38 @@ class ProductTableState extends State<ProductTable> {
                               constraints: const BoxConstraints(
                                 maxWidth: 200,
                               ),
-                              child: DropdownButtonFormField<String>(
-                                isExpanded: true,
-                                value: entry.key,
-                                items: allProducts
-                                    .map((product) => DropdownMenuItem<String>(
-                                        value: product, child: Text(product)))
-                                    .toList(),
-                                onChanged: widget.editable
-                                    ? (newProduct) {
-                                        if (newProduct != null) {
-                                          setState(() {
-                                            widget._recipeProducts
-                                                .remove(entry.key);
-                                            widget._recipeProducts[newProduct] =
-                                                entry.value;
-                                          });
-                                        }
-                                      }
-                                    : null,
-                                hint: const Text('Product'),
-                                decoration: const InputDecoration.collapsed(
-                                    hintText: 'Product'),
-                              ),
+                              child: ValueListenableBuilder(
+                                  valueListenable: _productNotifier,
+                                  builder:
+                                      (context, List<String> products, child) {
+                                    print('\n\nNotified!\n\n');
+                                    return DropdownButtonFormField<String>(
+                                      isExpanded: true,
+                                      value: entry.key,
+                                      items: products
+                                          .map((product) =>
+                                              DropdownMenuItem<String>(
+                                                  value: product,
+                                                  child: Text(product)))
+                                          .toList(),
+                                      onChanged: widget.editable
+                                          ? (newProduct) {
+                                              if (newProduct != null) {
+                                                setState(() {
+                                                  widget._recipeProducts
+                                                      .remove(entry.key);
+                                                  widget._recipeProducts[
+                                                      newProduct] = entry.value;
+                                                });
+                                              }
+                                            }
+                                          : null,
+                                      hint: const Text('Product'),
+                                      decoration:
+                                          const InputDecoration.collapsed(
+                                              hintText: 'Product'),
+                                    );
+                                  }),
                             ),
                           ),
                           DataCell(TextFormField(
@@ -149,18 +160,22 @@ class ProductTableState extends State<ProductTable> {
                   padding: const EdgeInsets.all(8.0),
                   child: SizedBox(
                     width: 200,
-                    child: DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      value: _productDropdown,
-                      items: allProducts
-                          .map((product) => DropdownMenuItem<String>(
-                              value: product, child: Text(product)))
-                          .toList(),
-                      onChanged: (product) {
-                        setState(() => _productDropdown = product);
-                      },
-                      hint: const Text('New Product'),
-                    ),
+                    child: ValueListenableBuilder(
+                        valueListenable: _productNotifier,
+                        builder: (context, List<String> products, child) {
+                          return DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: _productDropdown,
+                            items: products
+                                .map((product) => DropdownMenuItem<String>(
+                                    value: product, child: Text(product)))
+                                .toList(),
+                            onChanged: (product) {
+                              setState(() => _productDropdown = product);
+                            },
+                            hint: const Text('New Product'),
+                          );
+                        }),
                   ),
                 ),
                 Padding(
@@ -195,7 +210,7 @@ class ProductTableState extends State<ProductTable> {
                 ),
                 IconButton(
                     onPressed: () async {
-                      if (_productDropdown != null) {
+                      if (_productDropdown != null && _amount > 0) {
                         Results units = await db.query(
                             'SELECT Units '
                             'FROM PRODUCT WHERE ProductName = ?',
@@ -218,7 +233,10 @@ class ProductTableState extends State<ProductTable> {
             padding: const EdgeInsets.only(top: 16),
             child: OutlinedButton(
               child: const Text('Add a new product to db'),
-              onPressed: () => addProduct(context).then((_) => setState(() {})),
+              onPressed: () => addProduct(context).then((_) async {
+                await getProducts()
+                    .then((_) => _productNotifier.value = [...allProducts]);
+              }),
             ),
           ),
         )
@@ -238,8 +256,8 @@ class ProductDialogState extends State<ProductDialog> {
   final GlobalKey<FormState> _productFormKey = GlobalKey();
   bool _isTool = false;
   final List<TextFormField> _typeFields = [];
-  late final String? _units;
-  late final String? _name;
+  late String? _units;
+  late String? _name;
 
   @override
   Widget build(BuildContext context) {
@@ -262,21 +280,27 @@ class ProductDialogState extends State<ProductDialog> {
                         onSaved: (name) => _name = name,
                       ),
                     ),
-                    SizedBox(
-                      width: 200,
-                      child: TextFormField(
-                        decoration: const InputDecoration(labelText: 'Units'),
-                        textInputAction: TextInputAction.next,
-                        validator: nullValidator,
-                        onChanged: (value) {
-                          _units = value;
-                        },
+                    Visibility(
+                      visible: !_isTool,
+                      child: SizedBox(
+                        width: 200,
+                        child: TextFormField(
+                          decoration: const InputDecoration(labelText: 'Units'),
+                          textInputAction: TextInputAction.next,
+                          validator: nullValidator,
+                          onChanged: (value) {
+                            _units = value;
+                          },
+                        ),
                       ),
                     ),
-                    MultiField(
-                      fields: _typeFields,
-                      field: typeField,
-                      editable: true,
+                    Visibility(
+                      visible: !_isTool,
+                      child: MultiField(
+                        fields: _typeFields,
+                        field: typeField,
+                        editable: true,
+                      ),
                     ),
                     SizedBox(
                       width: 200,
@@ -297,22 +321,27 @@ class ProductDialogState extends State<ProductDialog> {
                             if (_productFormKey.currentState?.validate() ??
                                 false) {
                               _productFormKey.currentState?.save();
-                              db.query('INSERT INTO PRODUCT VALUES (?, ?, ?)', [
+                              await db.query(
+                                  'INSERT INTO PRODUCT VALUES (?, ?, ?)', [
                                 _name,
-                                _units,
+                                _isTool ? 'unit' : _units,
                                 _isTool ? 'Tool' : 'Ingredient'
                               ]);
-                              db.queryMulti(
-                                  'INSERT INTO INGREDIENT_TYPE VALUES (?, ?)',
-                                  _typeFields
-                                      .map((type) =>
-                                          [_name, type.controller?.text])
-                                      .toList());
+
+                              if (!_isTool) {
+                                await db.queryMulti(
+                                    'INSERT INTO INGREDIENT_TYPE VALUES (?, ?)',
+                                    _typeFields
+                                        .map((type) =>
+                                            [_name, type.controller?.text])
+                                        .toList());
+                              }
 
                               if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                    content: Text(
-                                        '${allProducts.last} added successfully')));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content:
+                                            Text('$_name added successfully')));
                                 Navigator.of(context).pop(true);
                               }
                             }

@@ -9,10 +9,12 @@ import 'package:mysql1/mysql1.dart';
 List<String> allProducts = [];
 DateFormat formatter = DateFormat('yyyy-MM-dd');
 
-getProducts() async {
-  allProducts = List<String>.of((await db.query('SELECT ProductName '
-          'FROM PRODUCT'))
-      .map((row) => row[0]));
+Future<void> getProducts() async {
+  allProducts = [
+    ...(await db.query('SELECT ProductName '
+            'FROM PRODUCT'))
+        .map((row) => row[0])
+  ];
 }
 
 // text form validators

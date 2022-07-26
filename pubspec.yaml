@@ -55,7 +55,7 @@ dev_dependencies:
 
 msix_config:
   display_name: Meal Maker
-  msix_version: 1.0.0.0
+  msix_version: 4.4.0.0
   logo_path: windows/runner/resources/meal_maker_aligned.png
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

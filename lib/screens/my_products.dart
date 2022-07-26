@@ -143,8 +143,8 @@ class MyProductsPageState extends State<MyProductsPage> {
             child: DataTable(
               showCheckboxColumn: false,
               // border: TableBorder.all(),
-              columns: const [
-                DataColumn(
+              columns: [
+                const DataColumn(
                     label: Center(
                       child: Text(
                         'Name',
@@ -152,14 +152,14 @@ class MyProductsPageState extends State<MyProductsPage> {
                       ),
                     ),
                     numeric: true),
-                DataColumn(
+                const DataColumn(
                   label: Center(
                       child: Text(
                     'Types',
                     textAlign: TextAlign.center,
                   )),
                 ),
-                DataColumn(
+                const DataColumn(
                     label: Center(
                       child: Text(
                         'Units',
@@ -167,7 +167,7 @@ class MyProductsPageState extends State<MyProductsPage> {
                       ),
                     ),
                     numeric: true),
-                DataColumn(
+                const DataColumn(
                   label: Center(
                     child: Text(
                       'Amount Owned',
@@ -175,14 +175,7 @@ class MyProductsPageState extends State<MyProductsPage> {
                     ),
                   ),
                 ),
-                DataColumn(
-                  label: Center(
-                    child: Text(
-                      'Update Amount',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
+                DataColumn(label: Container()),
               ],
               rows: _filteredList
                   .map<DataRow>(
@@ -191,7 +184,7 @@ class MyProductsPageState extends State<MyProductsPage> {
                         DataCell(Text('${product['Name']}')),
                         DataCell(Text(
                             _ingredientTypes[product['Name']]?.join(', ') ??
-                                'N/A (${product['Type']})')),
+                                'N/A')),
                         DataCell(Text('${product['Units'] ?? 'N/A'}')),
                         DataCell(Text('${product['Amount']}')),
                         DataCell(TextFormField(

@@ -165,6 +165,7 @@ class _OverviewPageState extends State<OverviewPage>
                             .currentState!
                             .popUntil((route) => route.isFirst);
                       },
+                      tooltip: 'Change mode',
                       icon: const Icon(Icons.change_circle_outlined)),
                   IconButton(
                       onPressed: () {
@@ -173,6 +174,7 @@ class _OverviewPageState extends State<OverviewPage>
                         Navigator.of(context).pushReplacement(MaterialPageRoute(
                             builder: (context) => const LoginPage()));
                       },
+                      tooltip: 'Log out',
                       icon: const Icon(Icons.logout_outlined))
                 ],
                 bottom: TabBar(

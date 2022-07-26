@@ -324,7 +324,7 @@ class ProductDialogState extends State<ProductDialog> {
                               await db.query(
                                   'INSERT INTO PRODUCT VALUES (?, ?, ?)', [
                                 _name,
-                                _isTool ? 'unit' : _units,
+                                _isTool ? null : _units,
                                 _isTool ? 'Tool' : 'Ingredient'
                               ]);
 

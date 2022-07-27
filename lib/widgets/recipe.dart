@@ -42,7 +42,7 @@ class RecipeState extends State<Recipe> {
   final Map<String, List> _recipeProducts = {};
 
   // to call save to db method
-  late final ProductTable _productTable = ProductTable(
+  late ProductTable _productTable = ProductTable(
     editable: widget.editable,
     recipeIDs: widget.id != null ? [widget.id!] : [],
   );
@@ -113,6 +113,12 @@ class RecipeState extends State<Recipe> {
               .toList());
       _productTable.addToDB(id);
       _recipeProducts.clear();
+      setState(() {
+        _productTable = ProductTable(
+          editable: widget.editable,
+          recipeIDs: widget.id != null ? [widget.id!] : [],
+        );
+      });
 
       widget._formKey.currentState?.reset();
 

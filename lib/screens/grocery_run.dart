@@ -286,9 +286,7 @@ class GroceryRunState extends State<GroceryRun> {
                                           setState(() {
                                             _selectedRows[i] = selected;
                                           });
-                                          if (selected &&
-                                              _checklist[i].mealMap['Amount'] >
-                                                  0) {
+                                          if (selected) {
                                             // add to db
                                             await db.query(
                                                 'INSERT INTO OBTAINS (GroceryID, Price, ProductName, Amount) '
@@ -301,6 +299,14 @@ class GroceryRunState extends State<GroceryRun> {
                                                       .mealMap['Amount']
                                                 ]);
                                             await db.query(
+                                                'INSERT INTO OWNS VALUES (?, ?, ?)',
+                                                [
+                                                  widget.email,
+                                                  _checklist[i].mealMap['Name'],
+                                                  _checklist[i]
+                                                      .mealMap['TotalAmount'],
+                                                ]);
+                                            await db.query(
                                                 'UPDATE OWNS SET Amount = ? '
                                                 'WHERE ProductName = ? AND Email = ?',
                                                 [
@@ -311,20 +317,46 @@ class GroceryRunState extends State<GroceryRun> {
                                                 ]);
                                           } else if (!selected) {
                                             // remove from db
+                                            num amountObtained = num.parse(
+                                                (await db.query(
+                                                        'SELECT Amount FROM OBTAINS WHERE GroceryID = ? AND ProductName = ?',
+                                                        [
+                                                  widget.groceryID,
+                                                  _checklist[i].mealMap['Name']
+                                                ]))
+                                                    .first
+                                                    .first);
+                                            print(amountObtained);
+
+                                            if (amountObtained ==
+                                                _checklist[i]
+                                                    .mealMap['OwnedAmount']) {
+                                              await db.query(
+                                                  'UPDATE OWNS SET Amount = ? '
+                                                  'WHERE ProductName = ? AND Email = ?',
+                                                  [
+                                                    _checklist[i].mealMap[
+                                                            'OwnedAmount'] -
+                                                        amountObtained,
+                                                    _checklist[i]
+                                                        .mealMap['Name'],
+                                                    widget.email
+                                                  ]);
+                                            } else {
+                                              await db.query(
+                                                  'DELETE FROM OWNS '
+                                                  'WHERE ProductName = ? AND Email = ?',
+                                                  [
+                                                    _checklist[i]
+                                                        .mealMap['Name'],
+                                                    widget.email
+                                                  ]);
+                                            }
                                             await db.query(
                                                 'DELETE FROM OBTAINS WHERE GroceryID = ? AND ProductName = ?',
                                                 [
                                                   widget.groceryID,
                                                   _checklist[i].mealMap['Name'],
-                                                ]);
-                                            await db.query(
-                                                'UPDATE OWNS SET Amount = ? '
-                                                'WHERE ProductName = ? AND Email = ?',
-                                                [
-                                                  _checklist[i]
-                                                      .mealMap['OwnedAmount'],
-                                                  _checklist[i].mealMap['Name'],
-                                                  widget.email
                                                 ]);
                                           }
                                           _buildChecklistFromID();

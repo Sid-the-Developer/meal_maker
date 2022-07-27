@@ -68,8 +68,8 @@ class MyProductsPageState extends State<MyProductsPage> {
 
     // filter the search query first
     if (_searchName != null && _searchName?.trim() != '') {
-      filtered
-          .where((element) => element['Name'] == _searchName?.toLowerCase());
+      filtered.retainWhere((element) =>
+          element['Name'].toLowerCase() == _searchName?.toLowerCase());
     }
 
     // find recipes that do not contain at least one of the filters then remove them
@@ -77,7 +77,9 @@ class MyProductsPageState extends State<MyProductsPage> {
       if (type.controller?.text != null && type.controller?.text.trim() != '') {
         for (MapEntry<String, Set<String>?> product
             in _ingredientTypes.entries) {
-          if (!(product.value?.contains(type.controller?.text.trim()) ??
+          if (!(product.value
+                  ?.map((e) => e.toLowerCase())
+                  .contains(type.controller?.text.trim()) ??
               false)) {
             invalidProducts.add(product.key);
           }

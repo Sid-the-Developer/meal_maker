@@ -101,10 +101,12 @@ class BrowseRecipesState extends State<BrowseRecipes> {
 
     // find recipes that do not contain at least one of the filters then remove them
     for (TextFormField dietTag in _dietTags) {
-      if (dietTag.controller?.text.trim() != null &&
+      if (dietTag.controller?.text != null &&
           dietTag.controller?.text.trim() != '') {
         for (MapEntry<int, Set<String>> recipe in _recipeDietTags.entries) {
-          if (!recipe.value.contains(dietTag.controller?.text.trim())) {
+          if (!recipe.value
+              .map((e) => e.toLowerCase())
+              .contains(dietTag.controller?.text.trim().toLowerCase())) {
             invalidRecipeIDs.add(recipe.key);
           }
         }
@@ -118,10 +120,12 @@ class BrowseRecipesState extends State<BrowseRecipes> {
 
     // do the same with cuisines
     for (TextFormField cuisine in _cuisines) {
-      if (cuisine.controller?.text.trim() != null &&
+      if (cuisine.controller?.text != null &&
           cuisine.controller?.text.trim() != '') {
         for (MapEntry<int, Set<String>> recipe in _recipeCuisines.entries) {
-          if (!recipe.value.contains(cuisine.controller?.text.trim())) {
+          if (!recipe.value
+              .map((e) => e.toLowerCase())
+              .contains(cuisine.controller?.text.trim().toLowerCase())) {
             invalidRecipeIDs.add(recipe.key);
           }
         }
